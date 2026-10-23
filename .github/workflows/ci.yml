@@ -67,7 +67,7 @@ jobs:
 
   # GPU jobs run on a self-hosted runner with an H100; skipped on forks.
   test-gpu:
-    if: github.repository_owner == 'priyanshu-singh' && github.event_name == 'push'
+    if: github.repository_owner == 'Priyanshusingh09876' && github.event_name == 'push'
     runs-on: [self-hosted, gpu]
     steps:
       - uses: actions/checkout@v4

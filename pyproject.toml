@@ -39,8 +39,8 @@ all = ["kiln-rl[train,ray,vllm,reward,triton,dev]"]
 kiln = "kiln.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/priyanshu-singh/kiln"
-Documentation = "https://github.com/priyanshu-singh/kiln/tree/main/docs"
+Homepage = "https://github.com/Priyanshusingh09876/Kiln"
+Documentation = "https://github.com/Priyanshusingh09876/Kiln/tree/main/docs"
 
 [tool.setuptools.packages.find]
 include = ["kiln*"]
