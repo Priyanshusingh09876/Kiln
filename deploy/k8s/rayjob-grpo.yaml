@@ -1,0 +1,56 @@
+# KubeRay RayJob: 8 trainer GPUs + 4 vLLM engines on H100 nodes with RDMA.
+apiVersion: ray.io/v1
+kind: RayJob
+metadata: {name: kiln-grpo-math}
+spec:
+  entrypoint: kiln train /opt/kiln/configs/grpo_math_qwen3_8b.yaml --ray
+  shutdownAfterJobFinishes: true
+  ttlSecondsAfterFinished: 600
+  runtimeEnvYAML: |
+    env_vars:
+      MODEL_PATH: /models/Qwen3-8B
+      DATA_DIR: /data
+      CKPT_DIR: /checkpoints
+      REWARD_URL: http://kiln-reward:8008
+      WANDB_API_KEY: ${WANDB_API_KEY}
+      NCCL_IB_HCA: mlx5
+      NCCL_SOCKET_IFNAME: eth0
+      VLLM_USE_V1: "1"
+  rayClusterSpec:
+    rayVersion: "2.40.0"
+    headGroupSpec:
+      rayStartParams: {dashboard-host: "0.0.0.0", num-gpus: "0"}
+      template:
+        spec:
+          containers:
+            - name: ray-head
+              image: ghcr.io/priyanshu-singh/kiln:latest
+              resources: {limits: {cpu: "8", memory: 32Gi}}
+    workerGroupSpecs:
+      - groupName: gpu-workers
+        replicas: 2
+        minReplicas: 2
+        maxReplicas: 2
+        rayStartParams: {num-gpus: "8"}
+        template:
+          metadata:
+            annotations: {k8s.v1.cni.cncf.io/networks: rdma-net}
+          spec:
+            nodeSelector: {nvidia.com/gpu.product: NVIDIA-H100-80GB-HBM3}
+            tolerations: [{key: nvidia.com/gpu, operator: Exists, effect: NoSchedule}]
+            containers:
+              - name: ray-worker
+                image: ghcr.io/priyanshu-singh/kiln:latest
+                resources:
+                  limits: {nvidia.com/gpu: 8, rdma/ib: 8, cpu: "96", memory: 1200Gi, hugepages-2Mi: 8Gi}
+                securityContext: {capabilities: {add: [IPC_LOCK]}}
+                volumeMounts:
+                  - {name: models, mountPath: /models, readOnly: true}
+                  - {name: data, mountPath: /data, readOnly: true}
+                  - {name: ckpt, mountPath: /checkpoints}
+                  - {name: shm, mountPath: /dev/shm}
+            volumes:
+              - {name: models, persistentVolumeClaim: {claimName: models-pvc}}
+              - {name: data, persistentVolumeClaim: {claimName: data-pvc}}
+              - {name: ckpt, persistentVolumeClaim: {claimName: ckpt-pvc}}
+              - {name: shm, emptyDir: {medium: Memory, sizeLimit: 256Gi}}

@@ -1,0 +1,67 @@
+name: ci
+
+on:
+  push: {branches: [main]}
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11"}
+      - run: pip install ruff==0.6.9 mypy
+      - run: ruff check kiln tests
+      - run: ruff format --check kiln tests
+      - run: pip install -e ".[dev]" --extra-index-url https://download.pytorch.org/whl/cpu && mypy kiln --ignore-missing-imports --no-strict-optional || true
+
+  test-cpu:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "${{ matrix.python }}"}
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ runner.os }}-${{ matrix.python }}-${{ hashFiles('pyproject.toml') }}
+      - run: pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - run: pip install -e ".[dev]"
+      - run: pytest -q --timeout 600 --junitxml=junit.xml
+      - run: kiln validate configs/*.yaml
+      - run: kiln train configs/tiny_cpu_smoke.yaml --steps 5
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: {name: junit-${{ matrix.python }}, path: junit.xml}
+
+  # Perf regression gate: fails if the CPU-reference step benchmark regresses >25% vs. the stored baseline.
+  perf-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11"}
+      - run: pip install torch --index-url https://download.pytorch.org/whl/cpu && pip install -e ".[dev]"
+      - run: kiln bench scheduler --json-out bench.json && kiln bench sync --json-out bench_sync.json
+      - run: python scripts/check_perf_regression.py bench.json scripts/perf_baseline.json --tolerance 0.25
+
+  # GPU jobs run on a self-hosted runner with an H100; skipped on forks.
+  test-gpu:
+    if: github.repository_owner == 'priyanshu-singh' && github.event_name == 'push'
+    runs-on: [self-hosted, gpu]
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install -e ".[dev,triton]"
+      - run: pytest -q tests/test_kernels.py -m "not slow"
+      - run: kiln bench kernels --json-out kernels_gpu.json
+      - run: python scripts/check_perf_regression.py kernels_gpu.json scripts/perf_baseline_h100.json --tolerance 0.10
+      - uses: actions/upload-artifact@v4
+        with: {name: kernels-gpu, path: kernels_gpu.json}

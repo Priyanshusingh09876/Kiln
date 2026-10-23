@@ -1,0 +1,11 @@
+# Reward server: CPU-only, locked down (no network, read-only FS, non-root) because it executes model-written code.
+FROM python:3.11-slim
+RUN useradd -m -u 10001 kiln
+WORKDIR /opt/kiln
+COPY pyproject.toml README.md LICENSE ./
+COPY kiln ./kiln
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && pip install --no-cache-dir -e ".[reward]"
+USER kiln
+EXPOSE 8008
+ENTRYPOINT ["kiln", "reward-serve"]
+CMD ["configs/grpo_math_qwen3_8b.yaml", "--port", "8008"]

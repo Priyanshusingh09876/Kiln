@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: kiln-reward}
+spec:
+  replicas: 4
+  selector: {matchLabels: {app: kiln-reward}}
+  template:
+    metadata: {labels: {app: kiln-reward}}
+    spec:
+      securityContext: {runAsNonRoot: true, runAsUser: 10001, seccompProfile: {type: RuntimeDefault}}
+      containers:
+        - name: reward
+          image: ghcr.io/priyanshu-singh/kiln-reward:latest
+          args: ["/opt/kiln/configs/grpo_math_qwen3_8b.yaml", "--port", "8008"]
+          ports: [{containerPort: 8008}]
+          resources: {requests: {cpu: "8", memory: 8Gi}, limits: {cpu: "16", memory: 16Gi}}
+          securityContext: {readOnlyRootFilesystem: true, allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+          volumeMounts: [{name: tmp, mountPath: /tmp}]
+          readinessProbe: {httpGet: {path: /healthz, port: 8008}, periodSeconds: 5}
+          livenessProbe: {httpGet: {path: /healthz, port: 8008}, periodSeconds: 20}
+      volumes: [{name: tmp, emptyDir: {sizeLimit: 1Gi}}]
+---
+apiVersion: v1
+kind: Service
+metadata: {name: kiln-reward}
+spec: {selector: {app: kiln-reward}, ports: [{port: 8008, targetPort: 8008}]}
+---
+# No egress: model-written code executed by python_tests must not reach the network.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: kiln-reward-no-egress}
+spec:
+  podSelector: {matchLabels: {app: kiln-reward}}
+  policyTypes: [Egress]
+  egress: []
