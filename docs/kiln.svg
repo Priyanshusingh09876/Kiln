@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="620" height="150" viewBox="0 0 620 150" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10z" fill="#9aa4b2"/>
+    </marker>
+  </defs>
+  <rect width="620" height="150" rx="10" fill="#0f172a"/>
+  <text x="20" y="30" fill="#f8fafc" font-size="20" font-weight="700">kiln</text>
+  <text x="68" y="30" fill="#94a3b8">async LLM post-training · serving control plane</text>
+
+  <g stroke="#334155" stroke-width="1.2">
+    <rect x="20" y="60" width="130" height="60" rx="6" fill="#1e293b"/>
+    <rect x="200" y="60" width="150" height="60" rx="6" fill="#1e293b"/>
+    <rect x="400" y="60" width="200" height="60" rx="6" fill="#1e293b"/>
+  </g>
+  <text x="85" y="84" fill="#e2e8f0" text-anchor="middle">rollout engines</text>
+  <text x="85" y="102" fill="#64748b" text-anchor="middle">vLLM · SGLang · mock</text>
+  <text x="275" y="84" fill="#e2e8f0" text-anchor="middle">experience buffer</text>
+  <text x="275" y="102" fill="#64748b" text-anchor="middle">bounded · version-aware</text>
+  <text x="500" y="84" fill="#e2e8f0" text-anchor="middle">FSDP2 trainer</text>
+  <text x="500" y="102" fill="#64748b" text-anchor="middle">GRPO · PPO · DPO · Triton kernels</text>
+
+  <g stroke="#9aa4b2" stroke-width="1.4" fill="none" marker-end="url(#a)">
+    <path d="M150 90 L200 90"/>
+    <path d="M350 90 L400 90"/>
+    <path d="M500 120 C500 145 85 145 85 120"/>
+  </g>
+  <text x="292" y="141" fill="#64748b" text-anchor="middle">weight sync (NCCL broadcast, partial rollouts)</text>
+</svg>
