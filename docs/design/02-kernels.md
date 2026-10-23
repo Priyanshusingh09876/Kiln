@@ -60,6 +60,19 @@ reference dequantises and runs a bf16 matmul. `FP8Linear` is for frozen
 weights (reference policy, inference); training-time FP8 needs delayed
 scaling which lives in the trainer, not the kernel.
 
+## CUDA C++ versions (`csrc/`)
+
+The two hottest kernels — log-prob/entropy and RMSNorm — also exist as CUDA
+C++ (`csrc/fused_logprob_entropy.cu`, `csrc/rmsnorm.cu`), one thread block
+per row, warp-shuffle reductions, online-softmax state merged across warps
+through shared memory, templated on dtype (fp32/fp16/bf16) and block size
+(128–1024 threads chosen from the row length). The CUDA path is selected
+automatically when the extension is built (`KILN_KERNEL_BACKEND=auto`), and
+the three implementations are pinned against each other by the parity tests.
+They exist for images where Triton's JIT is unwelcome, for Nsight-level
+tuning (`-lineinfo`), and because having two independent implementations of
+the same math is the cheapest correctness check there is.
+
 ## Why not Liger / torch.compile?
 
 Liger's fused linear-cross-entropy is the right idea for *SFT* (it fuses the

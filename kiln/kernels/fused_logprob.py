@@ -31,7 +31,9 @@ from __future__ import annotations
 
 import torch
 
+from kiln import native
 from kiln.kernels.dispatch import next_pow2, num_warps_for, use_triton
+from kiln.native import use_cuda_ext
 
 try:  # pragma: no cover
     import triton
@@ -138,6 +140,13 @@ class _FusedLogprobEntropy(torch.autograd.Function):
     def forward(ctx, logits: torch.Tensor, targets: torch.Tensor):
         assert logits.dim() == 2, "flatten to [N, V] first"
         N, V = logits.shape
+        ctx.backend = "torch"
+        if use_cuda_ext(logits, targets):
+            logits_c = logits if logits.stride(1) == 1 else logits.contiguous()
+            logp, ent, lse = native.cuda().fused_logprob_entropy_fwd(logits_c, targets)
+            ctx.save_for_backward(logits_c, targets, lse, ent)
+            ctx.backend = "cuda"
+            return logp, ent
         if use_triton(logits, targets) and _HAS_TRITON:
             logits_c = logits if logits.stride(1) == 1 else logits.contiguous()
             logp = torch.empty(N, device=logits.device, dtype=torch.float32)
@@ -156,11 +165,10 @@ class _FusedLogprobEntropy(torch.autograd.Function):
                 num_warps=num_warps_for(BLOCK_V),
             )
             ctx.save_for_backward(logits_c, targets, lse, ent)
-            ctx.triton = True
+            ctx.backend = "triton"
         else:
             logp, ent, lse = _logprob_entropy_ref(logits, targets)
             ctx.save_for_backward(logits, targets, lse, ent)
-            ctx.triton = False
         return logp, ent
 
     @staticmethod
@@ -172,7 +180,10 @@ class _FusedLogprobEntropy(torch.autograd.Function):
             g_ent = torch.zeros_like(lse)
         g_logp = g_logp.contiguous().float()
         g_ent = g_ent.contiguous().float()
-        if ctx.triton:
+        if ctx.backend == "cuda":
+            grad = native.cuda().fused_logprob_entropy_bwd(logits, targets, lse, ent, g_logp, g_ent)
+            return grad, None
+        if ctx.backend == "triton":
             N, V = logits.shape
             grad = torch.empty(N, V, device=logits.device, dtype=torch.float32)
             BLOCK_V = min(next_pow2(V), 8192)

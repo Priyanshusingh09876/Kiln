@@ -16,3 +16,5 @@ bench*.json
 junit.xml
 .venv/
 .env
+*.so
+build/

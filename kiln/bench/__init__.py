@@ -14,6 +14,8 @@ from typing import Any
 
 import torch
 
+from kiln import native
+
 
 def _timeit(fn, iters: int = 20, warmup: int = 3) -> float:
     for _ in range(warmup):
@@ -29,7 +31,7 @@ def _timeit(fn, iters: int = 20, warmup: int = 3) -> float:
 
 
 def bench_kernels(device: str | None = None) -> list[dict[str, Any]]:
-    from kiln.kernels import apply_rope, fused_logprob_entropy, rmsnorm, rope_tables, triton_enabled
+    from kiln.kernels import apply_rope, fused_logprob_entropy, rmsnorm, rope_tables
 
     device = device or ("cuda" if torch.cuda.is_available() else "cpu")
     dtype = torch.bfloat16 if device == "cuda" else torch.float32
@@ -55,7 +57,7 @@ def bench_kernels(device: str | None = None) -> list[dict[str, Any]]:
             {
                 "kernel": "logprob+entropy fwd+bwd",
                 "shape": f"{n}x{v}",
-                "backend": "triton" if triton_enabled() else "torch-ref",
+                "backend": native.backend(),
                 "naive_ms": t_naive * 1e3,
                 "fused_ms": t_fused * 1e3,
                 "speedup": t_naive / t_fused,
@@ -78,7 +80,7 @@ def bench_kernels(device: str | None = None) -> list[dict[str, Any]]:
             {
                 "kernel": "rmsnorm fwd+bwd",
                 "shape": f"{n}x{h}",
-                "backend": "triton" if triton_enabled() else "torch-ref",
+                "backend": native.backend(),
                 "naive_ms": tn * 1e3,
                 "fused_ms": tk * 1e3,
                 "speedup": tn / tk,
@@ -104,7 +106,7 @@ def bench_kernels(device: str | None = None) -> list[dict[str, Any]]:
         {
             "kernel": "rope fwd+bwd",
             "shape": f"{B}x{T}x{H}x{D}",
-            "backend": "triton" if triton_enabled() else "torch-ref",
+            "backend": native.backend(),
             "naive_ms": tn * 1e3,
             "fused_ms": tk * 1e3,
             "speedup": tn / tk,

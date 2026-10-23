@@ -9,5 +9,9 @@ WORKDIR /opt/kiln
 COPY pyproject.toml README.md LICENSE ./
 COPY kiln ./kiln
 COPY configs ./configs
-RUN pip install -e ".[train,ray,reward,triton]" && pip install flash-attn --no-build-isolation || true
+COPY csrc ./csrc
+COPY setup.py ./
+RUN pip install --no-build-isolation -e ".[train,ray,reward,triton]" \
+ && python -c "from kiln import native; s = native.summary(); print(s); print('cuda ext built:', s['cuda_ext'])" \
+ && (pip install flash-attn --no-build-isolation || true)
 ENTRYPOINT ["kiln"]

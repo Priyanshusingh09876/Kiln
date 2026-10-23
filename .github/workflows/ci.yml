@@ -18,7 +18,18 @@ jobs:
       - run: pip install ruff==0.6.9 mypy
       - run: ruff check kiln tests
       - run: ruff format --check kiln tests
-      - run: pip install -e ".[dev]" --extra-index-url https://download.pytorch.org/whl/cpu && mypy kiln --ignore-missing-imports --no-strict-optional || true
+      - run: KILN_SKIP_NATIVE=1 pip install -e ".[dev]" --extra-index-url https://download.pytorch.org/whl/cpu && mypy kiln --ignore-missing-imports --no-strict-optional || true
+
+  # Type-check the CUDA sources with g++ against real libtorch + CUDA headers, no nvcc needed.
+  cuda-host-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11"}
+      - run: pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - run: pip install nvidia-cuda-runtime-cu12 nvidia-cuda-nvcc-cu12 nvidia-cuda-cccl-cu12
+      - run: bash scripts/check_cuda_host_compile.sh
 
   test-cpu:
     runs-on: ubuntu-latest
@@ -34,7 +45,8 @@ jobs:
           path: ~/.cache/pip
           key: pip-${{ runner.os }}-${{ matrix.python }}-${{ hashFiles('pyproject.toml') }}
       - run: pip install torch --index-url https://download.pytorch.org/whl/cpu
-      - run: pip install -e ".[dev]"
+      - run: pip install --no-build-isolation -e ".[dev]"     # builds the C++ extension (kiln._C)
+      - run: python -c "from kiln import native; s = native.summary(); print(s); assert s['cpp_ext']"
       - run: pytest -q --timeout 600 --junitxml=junit.xml
       - run: kiln validate configs/*.yaml
       - run: kiln train configs/tiny_cpu_smoke.yaml --steps 5
@@ -59,8 +71,9 @@ jobs:
     runs-on: [self-hosted, gpu]
     steps:
       - uses: actions/checkout@v4
-      - run: pip install -e ".[dev,triton]"
-      - run: pytest -q tests/test_kernels.py -m "not slow"
+      - run: pip install --no-build-isolation -e ".[dev,triton]"   # nvcc present -> builds kiln._cuda
+      - run: python -c "from kiln import native; s = native.summary(); print(s); assert s['cuda_ext']"
+      - run: pytest -q tests/test_kernels.py tests/test_native.py -m "not slow"
       - run: kiln bench kernels --json-out kernels_gpu.json
       - run: python scripts/check_perf_regression.py kernels_gpu.json scripts/perf_baseline_h100.json --tolerance 0.10
       - uses: actions/upload-artifact@v4

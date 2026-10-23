@@ -14,7 +14,9 @@ from __future__ import annotations
 
 import torch
 
+from kiln import native
 from kiln.kernels.dispatch import next_pow2, num_warps_for, use_triton
+from kiln.native import use_cuda_ext
 
 try:  # pragma: no cover
     import triton
@@ -71,7 +73,12 @@ class _RMSNorm(torch.autograd.Function):
         shape = x.shape
         N = shape[-1]
         x2 = x.reshape(-1, N)
-        if use_triton(x2, w) and _HAS_TRITON:
+        ctx.backend = "torch"
+        if use_cuda_ext(x2, w):
+            x2 = x2.contiguous()
+            y, rstd = native.cuda().rmsnorm_fwd(x2, w.to(x2.dtype), float(eps))
+            ctx.backend = "cuda"
+        elif use_triton(x2, w) and _HAS_TRITON:
             x2 = x2.contiguous()
             y = torch.empty_like(x2)
             rstd = torch.empty(x2.shape[0], device=x.device, dtype=torch.float32)
@@ -79,10 +86,9 @@ class _RMSNorm(torch.autograd.Function):
             _rmsnorm_fwd[(x2.shape[0],)](
                 x2, w, y, rstd, N, x2.stride(0), eps, BLOCK=BLOCK, num_warps=num_warps_for(BLOCK)
             )
-            ctx.triton = True
+            ctx.backend = "triton"
         else:
             y, rstd = _fwd_ref(x2, w, eps)
-            ctx.triton = False
         ctx.save_for_backward(x2, w, rstd)
         return y.view(shape)
 
@@ -91,7 +97,10 @@ class _RMSNorm(torch.autograd.Function):
         x2, w, rstd = ctx.saved_tensors
         N = x2.shape[-1]
         dy2 = dy.reshape(-1, N)
-        if ctx.triton:
+        if ctx.backend == "cuda":
+            dx, dw = native.cuda().rmsnorm_bwd(x2, w.to(x2.dtype), dy2.contiguous(), rstd)
+            return dx.view(dy.shape), dw.to(w.dtype), None
+        if ctx.backend == "triton":
             dy2 = dy2.contiguous()
             dx = torch.empty_like(x2)
             dw_partial = torch.empty(x2.shape[0], N, device=x2.device, dtype=torch.float32)

@@ -1,0 +1,3 @@
+*.cu  linguist-language=CUDA
+*.cuh linguist-language=CUDA
+csrc/** linguist-detectable=true

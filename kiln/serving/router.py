@@ -22,29 +22,36 @@ for long prompts.
 from __future__ import annotations
 
 import threading
-import time
 from collections import OrderedDict
 from dataclasses import dataclass, field
 
 
 class _RadixNode:
-    __slots__ = ("children", "last_access", "count")
+    __slots__ = ("children", "parent", "block", "last_access")
 
-    def __init__(self) -> None:
+    def __init__(self, parent: _RadixNode | None = None, block: tuple[int, ...] = ()) -> None:
         self.children: dict[tuple[int, ...], _RadixNode] = {}
-        self.last_access = 0.0
-        self.count = 0
+        self.parent = parent
+        self.block = block
+        self.last_access = 0
 
 
 class BlockRadixTree:
-    """Prefix tree over fixed-size token blocks with LRU eviction by block count."""
+    """Prefix tree over fixed-size token blocks with LRU eviction of *leaf* blocks.
+
+    Interior blocks become evictable only once all their children are gone,
+    which mirrors how a paged-KV cache frees blocks. This is the reference
+    implementation; ``kiln._C.BlockRadixTree`` (C++) has identical semantics
+    and is differential-tested against it.
+    """
 
     def __init__(self, block_size: int = 16, capacity_blocks: int = 4096):
         self.block_size = block_size
         self.capacity = capacity_blocks
         self.root = _RadixNode()
-        self._lru: OrderedDict[tuple[tuple[int, ...], ...], None] = OrderedDict()
+        self._lru: OrderedDict[_RadixNode, None] = OrderedDict()  # leaves, oldest first
         self.size_blocks = 0
+        self._clock = 0
 
     def _blocks(self, ids: list[int]) -> list[tuple[int, ...]]:
         n = len(ids) // self.block_size
@@ -61,38 +68,50 @@ class BlockRadixTree:
             matched += self.block_size
         return matched
 
+    def _touch(self, node: _RadixNode) -> None:
+        self._lru.pop(node, None)
+        self._lru[node] = None
+
     def insert(self, ids: list[int]) -> int:
         """Insert; returns number of *new* blocks added."""
-        node, path, added = self.root, [], 0
-        now = time.monotonic()
+        node, added = self.root, 0
+        self._clock += 1
         for b in self._blocks(ids):
-            path.append(b)
             nxt = node.children.get(b)
             if nxt is None:
-                nxt = _RadixNode()
+                nxt = _RadixNode(node, b)
                 node.children[b] = nxt
                 added += 1
                 self.size_blocks += 1
-            nxt.last_access = now
-            nxt.count += 1
-            key = tuple(path)
-            self._lru.pop(key, None)
-            self._lru[key] = None
+                self._lru.pop(node, None)  # parent is no longer a leaf
+            nxt.last_access = self._clock
+            if not nxt.children:
+                self._touch(nxt)
             node = nxt
         self._evict()
         return added
 
     def _evict(self) -> None:
         while self.size_blocks > self.capacity and self._lru:
-            path, _ = self._lru.popitem(last=False)
-            node = self.root
-            for b in path[:-1]:
-                node = node.children.get(b)
-                if node is None:
-                    break
-            if node is not None and path[-1] in node.children and not node.children[path[-1]].children:
-                del node.children[path[-1]]
-                self.size_blocks -= 1
+            victim, _ = self._lru.popitem(last=False)
+            parent = victim.parent
+            if parent is None:
+                break
+            del parent.children[victim.block]
+            self.size_blocks -= 1
+            if parent is not self.root and not parent.children:
+                self._touch(parent)
+
+
+def make_radix_tree(block_size: int, capacity_blocks: int, prefer_native: bool = True):
+    """C++ ``kiln._C.BlockRadixTree`` when built (same semantics, ~2x faster), else the Python one."""
+    if prefer_native:
+        from kiln import native
+
+        ext = native.cpp()
+        if ext is not None:
+            return ext.BlockRadixTree(block_size, capacity_blocks)
+    return BlockRadixTree(block_size, capacity_blocks)
 
 
 @dataclass
@@ -109,7 +128,7 @@ class EngineReplica:
     tree: BlockRadixTree = field(init=False)
 
     def __post_init__(self) -> None:
-        self.tree = BlockRadixTree(self.block_size, self.capacity_blocks)
+        self.tree = make_radix_tree(self.block_size, self.capacity_blocks)
 
     @property
     def hit_rate(self) -> float:

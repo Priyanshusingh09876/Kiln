@@ -9,8 +9,8 @@
 ![license](https://img.shields.io/badge/license-Apache--2.0-green)
 
 ```bash
-pip install -e ".[dev]"
-pytest -q                                   # 113 tests, ~40 s on a laptop CPU, no GPU needed
+pip install torch && pip install --no-build-isolation -e ".[dev]"   # builds the C++ ext; CUDA ext too if nvcc is present
+pytest -q                                   # 118 tests, ~40 s on a laptop CPU, no GPU needed
 kiln train configs/tiny_cpu_smoke.yaml      # the full async GRPO loop end-to-end on CPU
 kiln train configs/grpo_math_qwen3_8b.yaml --ray   # 8 trainer GPUs + 4 vLLM engines
 ```
@@ -69,10 +69,10 @@ training loop without them does not run for three days on 64 GPUs.
 | Async loop | `kiln/orchestration` | Version-aware `ExperienceBuffer`, `RolloutWorker`, `StalenessController` (adaptive queue depth), `AsyncController`; Ray runtime with placement groups, colocated or disaggregated layouts. |
 | Trainer | `kiln/trainer`, `kiln/distributed` | FSDP2 `fully_shard` per block with mixed precision and activation checkpointing; `(pp, dp, cp, tp)` device mesh; sequence packing with first-fit-decreasing and block-diagonal masks; MFU accounting that counts the forward-only passes honestly. |
 | Rollouts | `kiln/rollout` | Engine contract (`generate / update_weights / pause / resume / sleep / wake`); vLLM engine with an in-worker extension for NCCL weight receive and in-place `load_weights` (KV cache and CUDA graphs survive); SGLang HTTP engine; mock engine for CPU tests. |
-| Kernels | `kiln/kernels` | Single-pass online-softmax log-prob + entropy (fwd + bwd, never materialises `[N,V]` probs), RMSNorm, RoPE with arbitrary positions, DeepSeek-style FP8 block-scaled GEMM. Every kernel has a PyTorch reference path and a parity test. |
+| Kernels | `kiln/kernels`, `csrc/` | Single-pass online-softmax log-prob + entropy (fwd + bwd, never materialises `[N,V]` probs), RMSNorm, RoPE with arbitrary positions, DeepSeek-style FP8 block-scaled GEMM — in Triton, plus **CUDA C++** versions of the two hottest (log-prob/entropy, RMSNorm) with warp-shuffle reductions and fp16/bf16/fp32 dispatch. Every kernel has a PyTorch reference path and a parity test; `KILN_KERNEL_BACKEND` pins CUDA / Triton / torch against each other. |
 | Rewards | `kiln/reward` | Composable rule verifiers (`\boxed{}` math with fraction/sympy equivalence, format, repetition, length, sandboxed Python unit tests), FastAPI reward server with Prometheus metrics, retrying batched client, reward-model scorer. |
 | Checkpointing | `kiln/checkpoint` | Async, atomic, rank-sharded; safetensors for weights; back-pressure; writer errors surfaced, never swallowed. |
-| Serving | `kiln/serving` | Prefix-cache-aware router (block radix tree + load cap), continuous-batching scheduler with paged KV, chunked prefill and youngest-first preemption (doubles as a capacity-planning simulator), SLO-gated canary controller, OpenAI-compatible gateway. |
+| Serving | `kiln/serving`, `csrc/radix_tree.cpp` | Prefix-cache-aware router (block radix tree + load cap; **C++ core** with zero-copy NumPy entry points, differential-tested against the Python reference), continuous-batching scheduler with paged KV, chunked prefill and youngest-first preemption (doubles as a capacity-planning simulator), SLO-gated canary controller, OpenAI-compatible gateway. |
 | Ops | `configs/`, `deploy/`, `.github/` | Strict pydantic YAML schema with env expansion and CLI overrides; KubeRay job, reward server with no-egress NetworkPolicy, gateway deployment; Slurm scripts; CI with lint, CPU tests on two Pythons, perf-regression gate, GPU runner job. |
 
 ## Design notes
@@ -121,8 +121,13 @@ scheduler simulator.
 * **Async must be checkable against sync.** With `max_staleness=0` the run
   is bit-for-bit deterministic and every importance weight is exactly 1.
 * **Kernels are tested forward and backward** at fp32 and bf16, at
-  non-power-of-two sizes, with extreme logits, and (on CUDA) Triton against
-  the reference path.
+  non-power-of-two sizes, with extreme logits, and (on CUDA) Triton and the
+  CUDA C++ extension against the reference path.
+* **Native code is checked on every PR, not only on the GPU runner.** The
+  C++ extension builds and runs in CPU CI; the `.cu` sources are
+  type-checked by g++ against real libtorch + CUDA headers
+  (`scripts/check_cuda_host_compile.sh`) so a broken template or signature
+  fails before it reaches the H100 job.
 * **Infrastructure gets failure tests**: checkpoint writer errors surface,
   live weights can be mutated while a write is in flight, a dead rollout
   worker fails the run instead of hanging it, a tripped canary stays tripped.
@@ -130,7 +135,9 @@ scheduler simulator.
 ## Status and honesty
 
 This is infrastructure code, tested on CPU in CI and exercised on GPU
-hardware I have access to. The throughput numbers you get from `kiln bench`
+hardware I have access to. The CUDA C++ kernels in `csrc/` are compiled and
+parity-tested in the GPU CI job; on CPU they are type-checked only, so if
+you build on an unusual toolchain, run `pytest tests/test_native.py` first. The throughput numbers you get from `kiln bench`
 are the throughput numbers on *your* hardware; nothing in this repo claims
 a number it did not measure in the run that printed it. The vLLM/SGLang
 engines track upstream APIs that move quickly — pin the versions in

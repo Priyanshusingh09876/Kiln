@@ -4,7 +4,7 @@ RUN useradd -m -u 10001 kiln
 WORKDIR /opt/kiln
 COPY pyproject.toml README.md LICENSE ./
 COPY kiln ./kiln
-RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && pip install --no-cache-dir -e ".[reward]"
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && KILN_SKIP_NATIVE=1 pip install --no-cache-dir -e ".[reward]"
 USER kiln
 EXPOSE 8008
 ENTRYPOINT ["kiln", "reward-serve"]
