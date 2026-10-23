@@ -1,0 +1,84 @@
+{
+  "scheduler": [
+    {
+      "arrival_rps": 5,
+      "chunked_prefill": false,
+      "throughput_rps": 5.005924851908971,
+      "ttft_p50_ms": 24.6513861009916,
+      "ttft_p99_ms": 52.23510310568713,
+      "e2e_p99_s": 3.5549940133883915,
+      "preemptions": 0,
+      "peak_kv_util": 0.1185302734375
+    },
+    {
+      "arrival_rps": 5,
+      "chunked_prefill": true,
+      "throughput_rps": 5.005924851908971,
+      "ttft_p50_ms": 24.6513861009916,
+      "ttft_p99_ms": 52.23510310568713,
+      "e2e_p99_s": 3.5549940133883915,
+      "preemptions": 0,
+      "peak_kv_util": 0.1185302734375
+    },
+    {
+      "arrival_rps": 10,
+      "chunked_prefill": false,
+      "throughput_rps": 9.869015883757383,
+      "ttft_p50_ms": 26.44606309561226,
+      "ttft_p99_ms": 60.20578708300306,
+      "e2e_p99_s": 4.23370311977042,
+      "preemptions": 0,
+      "peak_kv_util": 0.223388671875
+    },
+    {
+      "arrival_rps": 10,
+      "chunked_prefill": true,
+      "throughput_rps": 9.869015883757383,
+      "ttft_p50_ms": 26.44606309561226,
+      "ttft_p99_ms": 60.20578708300306,
+      "e2e_p99_s": 4.23370311977042,
+      "preemptions": 0,
+      "peak_kv_util": 0.223388671875
+    },
+    {
+      "arrival_rps": 20,
+      "chunked_prefill": false,
+      "throughput_rps": 19.066432948185728,
+      "ttft_p50_ms": 32.931888024002376,
+      "ttft_p99_ms": 80.36942213089927,
+      "e2e_p99_s": 6.53387669831412,
+      "preemptions": 0,
+      "peak_kv_util": 0.5625
+    },
+    {
+      "arrival_rps": 20,
+      "chunked_prefill": true,
+      "throughput_rps": 19.066432948185728,
+      "ttft_p50_ms": 32.93588313259477,
+      "ttft_p99_ms": 84.67634667126234,
+      "e2e_p99_s": 6.53387669831412,
+      "preemptions": 0,
+      "peak_kv_util": 0.5625
+    },
+    {
+      "arrival_rps": 40,
+      "chunked_prefill": false,
+      "throughput_rps": 23.553053389892508,
+      "ttft_p50_ms": 5906.448043445971,
+      "ttft_p99_ms": 13454.99682640147,
+      "e2e_p99_s": 21.40137780683712,
+      "preemptions": 363,
+      "peak_kv_util": 1.0
+    },
+    {
+      "arrival_rps": 40,
+      "chunked_prefill": true,
+      "throughput_rps": 23.50040939645496,
+      "ttft_p50_ms": 5970.759638926886,
+      "ttft_p99_ms": 13569.455357024484,
+      "e2e_p99_s": 21.562593299226002,
+      "preemptions": 380,
+      "peak_kv_util": 1.0
+    }
+  ]
+}
