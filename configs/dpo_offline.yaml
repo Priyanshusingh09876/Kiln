@@ -1,0 +1,11 @@
+# Offline DPO on preference pairs (no rollout engines). 8 GPUs FSDP2.
+model: {name_or_path: "${MODEL_PATH:-Qwen/Qwen3-8B}", dtype: bf16, attn_impl: flash}
+parallel: {dp: 8}
+train: {total_steps: 2000, rollout_batch_size: 64, micro_batch_size: 4, max_seq_len: 4096, optim: {lr: 5.0e-7, schedule: cosine, warmup_steps: 50}}
+rollout: {engine: mock, sampling: {n: 1}}
+algorithm: {name: dpo, dpo_beta: 0.1, dpo_variant: sigmoid, kl: {coef: 0.0}}
+async: {enabled: false, queue_depth: 1, max_staleness: 0}
+reward: {mode: rules, functions: []}
+data: {train_path: "${DATA_DIR:-data}/preferences.jsonl"}
+checkpoint: {dir: "${CKPT_DIR:-checkpoints}/dpo", interval: 200}
+logging: {backend: tensorboard, run_name: dpo}

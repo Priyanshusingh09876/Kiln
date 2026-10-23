@@ -1,0 +1,19 @@
+# Runs the whole async GRPO loop on a laptop CPU in ~20s. Used by CI.
+model: {name_or_path: tiny, dtype: fp32, tiny_hidden: 32, tiny_layers: 1, tiny_heads: 2}
+train:
+  total_steps: 20
+  rollout_batch_size: 32
+  micro_batch_size: 16
+  optim: {lr: 5e-3, warmup_steps: 2}
+rollout:
+  engine: mock
+  num_engines: 2
+  sampling: {n: 8, max_new_tokens: 8}
+algorithm: {name: grpo, kl: {coef: 0.0}}
+async: {enabled: true, queue_depth: 2, max_staleness: 2}
+reward:
+  mode: rules
+  functions: [{name: exact_match}]
+data: {train_path: examples/data/toy_prompts.jsonl, prompt_key: prompt, answer_key: answer}
+checkpoint: {dir: /tmp/kiln-smoke/ckpt, interval: 10, keep_last: 1}
+logging: {backend: stdout, log_dir: /tmp/kiln-smoke/runs, run_name: smoke}

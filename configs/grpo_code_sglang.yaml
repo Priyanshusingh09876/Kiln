@@ -1,0 +1,20 @@
+# GRPO on code with unit-test rewards; rollouts on an external SGLang deployment (HTTP).
+model: {name_or_path: "${MODEL_PATH:-Qwen/Qwen2.5-Coder-7B-Instruct}", dtype: bf16, attn_impl: flash}
+parallel: {dp: 8}
+train: {total_steps: 600, rollout_batch_size: 256, micro_batch_size: 8, max_seq_len: 6144, optim: {lr: 1.0e-6, warmup_steps: 10}}
+rollout:
+  engine: sglang
+  num_engines: 2
+  sglang_urls: ["${SGLANG_URL_0:-http://sglang-0:30000}", "${SGLANG_URL_1:-http://sglang-1:30000}"]
+  sampling: {temperature: 1.0, max_new_tokens: 2048, n: 8}
+algorithm: {name: dr_grpo, clip_eps: 0.2, loss_agg: seq_mean_token_sum, kl: {coef: 0.0}}
+async: {enabled: true, queue_depth: 3, max_staleness: 3, is_correction: token}
+reward:
+  mode: server
+  server_url: "${REWARD_URL:-http://reward:8008}"
+  functions:
+    - {name: python_tests, weight: 1.0, params: {timeout_s: 10}}
+    - {name: no_repetition, weight: 0.1}
+data: {train_path: "${DATA_DIR:-data}/code_train.jsonl", prompt_key: prompt, answer_key: tests}
+checkpoint: {dir: "${CKPT_DIR:-checkpoints}/grpo_code", interval: 50}
+logging: {backend: wandb, project: kiln, run_name: grpo-code}

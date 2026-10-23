@@ -1,0 +1,44 @@
+# PPO with a learned critic and a reward model, Llama-3.1-70B, 64 GPUs:
+#   trainer: dp=4 x tp=8 (32 GPUs, FSDP2 + TP) ; rollouts: 8 vLLM engines x tp=4 (32 GPUs)
+model:
+  name_or_path: "${MODEL_PATH:-meta-llama/Llama-3.1-70B-Instruct}"
+  dtype: bf16
+  attn_impl: flash
+  gradient_checkpointing: true
+reference:
+  name_or_path: "${MODEL_PATH:-meta-llama/Llama-3.1-70B-Instruct}"
+  dtype: bf16
+  attn_impl: flash
+parallel: {dp: 4, tp: 8, pp: 1, cp: 1, fsdp_cpu_offload: false}
+train:
+  total_steps: 400
+  rollout_batch_size: 1024
+  micro_batch_size: 4
+  ppo_epochs: 2
+  pack_sequences: true
+  max_seq_len: 4096
+  optim: {lr: 5.0e-7, warmup_steps: 10, schedule: cosine, grad_clip: 1.0}
+rollout:
+  engine: vllm
+  num_engines: 8
+  tensor_parallel_size: 4
+  gpu_memory_utilization: 0.9
+  partial_rollout: false
+  sampling: {temperature: 0.8, top_p: 0.95, max_new_tokens: 2048, n: 1}
+algorithm:
+  name: ppo
+  clip_eps: 0.2
+  value_clip: 0.2
+  value_coef: 0.5
+  gae_gamma: 1.0
+  gae_lambda: 0.95
+  normalize_advantages: true
+  kl: {coef: 0.02, estimator: k1, in_reward: true, target: 0.05, horizon: 10000}
+async: {enabled: true, queue_depth: 1, max_staleness: 1, is_correction: sequence, is_clip: 1.5, adaptive_depth: false}
+reward:
+  mode: server
+  server_url: "${REWARD_URL:-http://reward-model:8008}"
+  batch_size: 128
+data: {train_path: "${DATA_DIR:-data}/helpfulness_prompts.jsonl", prompt_key: messages, chat_template: true, max_prompt_len: 2048}
+checkpoint: {dir: "${CKPT_DIR:-checkpoints}/ppo_llama70b", interval: 25, async_save: true, keep_last: 2}
+logging: {backend: wandb, project: kiln, run_name: ppo-llama3-70b}

@@ -1,0 +1,56 @@
+# Async GRPO on verifiable math (GSM8K/MATH-style JSONL) with Qwen3-8B.
+# Layout: 8 trainer GPUs (FSDP2, dp=8) + 4 vLLM engines (tp=1 each) = 12 GPUs.
+#   kiln train configs/grpo_math_qwen3_8b.yaml --ray
+model:
+  name_or_path: "${MODEL_PATH:-Qwen/Qwen3-8B}"
+  dtype: bf16
+  attn_impl: flash
+  gradient_checkpointing: true
+parallel: {dp: 8, tp: 1, pp: 1, cp: 1, fsdp_reshard_after_forward: true}
+train:
+  total_steps: 1000
+  rollout_batch_size: 512          # prompts*n per optimizer step
+  micro_batch_size: 8
+  ppo_epochs: 1
+  pack_sequences: true
+  max_seq_len: 8192
+  optim: {lr: 1.0e-6, weight_decay: 0.0, warmup_steps: 20, schedule: constant, grad_clip: 1.0}
+rollout:
+  engine: vllm
+  num_engines: 4
+  tensor_parallel_size: 1
+  gpu_memory_utilization: 0.85
+  enable_prefix_caching: true
+  partial_rollout: true
+  sampling: {temperature: 1.0, top_p: 1.0, max_new_tokens: 4096, n: 8}
+algorithm:
+  name: grpo
+  clip_eps: 0.2
+  clip_eps_high: 0.28              # DAPO clip-higher
+  dual_clip: 3.0
+  loss_agg: token
+  entropy_coef: 0.0
+  kl: {coef: 0.001, estimator: k3, target: null}
+async:
+  enabled: true
+  queue_depth: 2
+  max_staleness: 2
+  is_correction: token
+  is_clip: 2.0
+  adaptive_depth: true
+reward:
+  mode: server                     # kiln reward-serve configs/grpo_math_qwen3_8b.yaml --port 8008
+  server_url: "${REWARD_URL:-http://reward:8008}"
+  functions:
+    - {name: math_boxed, weight: 1.0}
+    - {name: format_think, weight: 0.1}
+    - {name: length_penalty, weight: 0.5, params: {max_tokens: 4096, soft_start: 0.85}}
+    - {name: no_repetition, weight: 0.2}
+data:
+  train_path: "${DATA_DIR:-data}/math_train.jsonl"
+  prompt_key: prompt
+  answer_key: answer
+  chat_template: true
+  max_prompt_len: 1024
+checkpoint: {dir: "${CKPT_DIR:-checkpoints}/grpo_math_qwen3_8b", interval: 50, async_save: true, keep_last: 3, resume: true}
+logging: {backend: wandb, project: kiln, run_name: grpo-math-qwen3-8b, log_dir: runs}
