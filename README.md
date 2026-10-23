@@ -2,18 +2,21 @@
 
 # Kiln
 
-**An asynchronous LLM post-training and serving stack: GRPO / PPO / DPO on FSDP2, with vLLM / SGLang rollouts, fused Triton kernels, and the serving control plane to ship the result.**
+**An asynchronous LLM post-training and serving stack: GRPO / PPO / DPO on FSDP2, with vLLM / SGLang rollouts, fused Triton and CUDA C++ kernels, and the serving control plane to ship the result.**
 
-[![ci](https://github.com/priyanshu-singh/kiln/actions/workflows/ci.yml/badge.svg)](https://github.com/priyanshu-singh/kiln/actions/workflows/ci.yml)
+[![ci](https://github.com/Priyanshusingh09876/Kiln/actions/workflows/ci.yml/badge.svg)](https://github.com/Priyanshusingh09876/Kiln/actions/workflows/ci.yml)
 ![python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)
 ![license](https://img.shields.io/badge/license-Apache--2.0-green)
 
 ```bash
 pip install torch && pip install --no-build-isolation -e ".[dev]"   # builds the C++ ext; CUDA ext too if nvcc is present
-pytest -q                                   # 118 tests, ~40 s on a laptop CPU, no GPU needed
+pytest -q                                   # 118 tests, ~1 min on a laptop CPU, no GPU needed
 kiln train configs/tiny_cpu_smoke.yaml      # the full async GRPO loop end-to-end on CPU
+python examples/01_async_grpo_cpu.py        # same, with a learning curve
 kiln train configs/grpo_math_qwen3_8b.yaml --ray   # 8 trainer GPUs + 4 vLLM engines
 ```
+
+> Windows without a C++ compiler: `set KILN_SKIP_NATIVE=1` (PowerShell: `$env:KILN_SKIP_NATIVE="1"`) before `pip install -e ".[dev]"`. Everything runs; the native-extension tests skip.
 
 ## Why this exists
 
@@ -51,7 +54,8 @@ training loop without them does not run for three days on 64 GPUs.
  │   algorithm: GRPO · Dr.GRPO · RLOO · REINFORCE++ │  2. advantages (group stats / GAE)
  │              · PPO (+critic) · DPO (offline)      │  3. clipped surrogate × IS weights, KL, entropy
  │   kernels:   fused logprob+entropy, RMSNorm, RoPE,│  4. clip grads, optimizer step
- │              FP8 block GEMM  (Triton, torch ref)  │  5. policy_version += 1
+ │              FP8 block GEMM (CUDA C++ · Triton ·  │  5. policy_version += 1
+ │              torch reference, parity-tested)      │
  └──────────────────────────┬───────────────────────┘
                             ▼
       WeightSyncer  (inproc | CPU/Ray | NCCL broadcast into live vLLM workers, bucketed, LoRA-only option)
@@ -60,6 +64,23 @@ training loop without them does not run for three days on 64 GPUs.
                      engines keep generating with the new weights
       ╰── every N steps: AsyncCheckpointer (pinned-host copy → background write → atomic rename)
 ```
+
+## Does it learn?
+
+`python examples/01_async_grpo_cpu.py` — async GRPO on a 50K-parameter model, CPU only, about ten seconds on a laptop:
+
+<p align="center"><img src="docs/learning_curve.png" width="700" alt="reward rises from 0.33 to 0.99 over 60 steps while mean staleness stays near 1.9"></p>
+
+```
+reward every 10 steps: [0.335, 0.495, 0.688, 0.903, 0.989, 0.991]
+mean staleness: 1.92
+```
+
+Reward goes 0.33 → 0.99 while every batch the trainer consumed was ~2 policy
+versions stale — the asynchronous loop with importance-weight correction
+learns as well as the synchronous one. `tests/test_e2e.py` asserts this on
+every CI run; if any link in the alignment chain is off by one, the curve
+stays flat and the build fails.
 
 ## What's inside
 
@@ -73,7 +94,7 @@ training loop without them does not run for three days on 64 GPUs.
 | Rewards | `kiln/reward` | Composable rule verifiers (`\boxed{}` math with fraction/sympy equivalence, format, repetition, length, sandboxed Python unit tests), FastAPI reward server with Prometheus metrics, retrying batched client, reward-model scorer. |
 | Checkpointing | `kiln/checkpoint` | Async, atomic, rank-sharded; safetensors for weights; back-pressure; writer errors surfaced, never swallowed. |
 | Serving | `kiln/serving`, `csrc/radix_tree.cpp` | Prefix-cache-aware router (block radix tree + load cap; **C++ core** with zero-copy NumPy entry points, differential-tested against the Python reference), continuous-batching scheduler with paged KV, chunked prefill and youngest-first preemption (doubles as a capacity-planning simulator), SLO-gated canary controller, OpenAI-compatible gateway. |
-| Ops | `configs/`, `deploy/`, `.github/` | Strict pydantic YAML schema with env expansion and CLI overrides; KubeRay job, reward server with no-egress NetworkPolicy, gateway deployment; Slurm scripts; CI with lint, CPU tests on two Pythons, perf-regression gate, GPU runner job. |
+| Ops | `configs/`, `deploy/`, `.github/` | Strict pydantic YAML schema with env expansion and CLI overrides; KubeRay job, reward server with no-egress NetworkPolicy, gateway deployment; Slurm scripts; CI with lint, CPU tests on two Pythons, host-side CUDA type-check, perf-regression gate, GPU runner job. |
 
 ## Design notes
 
@@ -81,9 +102,11 @@ The four ADRs in [`docs/design/`](docs/design) explain the decisions that are
 not obvious from the code:
 
 1. [Asynchronous training with bounded staleness](docs/design/01-async-training.md) — why a bounded buffer, how importance weighting keeps it correct, how depth adapts.
-2. [Fused kernels](docs/design/02-kernels.md) — the online-softmax log-prob/entropy kernel and its one-pass backward, FP8 block scaling, why not Liger / `torch.compile`.
+2. [Fused kernels](docs/design/02-kernels.md) — the online-softmax log-prob/entropy kernel and its one-pass backward, the CUDA C++ versions, FP8 block scaling, why not Liger / `torch.compile`.
 3. [Weight sync and checkpointing](docs/design/03-weight-sync-and-checkpointing.md) — NCCL broadcast into live engine workers, pinned-buffer async checkpoints with atomic publish.
 4. [Serving control plane](docs/design/04-serving.md) — cache-aware routing, scheduler simulator, canary guardrails.
+
+`csrc/README.md` documents the native extensions and how they are built and tested.
 
 ## Running things
 
@@ -127,7 +150,10 @@ scheduler simulator.
   C++ extension builds and runs in CPU CI; the `.cu` sources are
   type-checked by g++ against real libtorch + CUDA headers
   (`scripts/check_cuda_host_compile.sh`) so a broken template or signature
-  fails before it reaches the H100 job.
+  fails before it reaches the H100 job. The C++ radix tree is
+  differential-tested against the Python reference over hundreds of
+  randomised trials — which is how an LRU-eviction bug in the Python version
+  was found.
 * **Infrastructure gets failure tests**: checkpoint writer errors surface,
   live weights can be mutated while a write is in flight, a dead rollout
   worker fails the run instead of hanging it, a tripped canary stays tripped.
@@ -137,11 +163,12 @@ scheduler simulator.
 This is infrastructure code, tested on CPU in CI and exercised on GPU
 hardware I have access to. The CUDA C++ kernels in `csrc/` are compiled and
 parity-tested in the GPU CI job; on CPU they are type-checked only, so if
-you build on an unusual toolchain, run `pytest tests/test_native.py` first. The throughput numbers you get from `kiln bench`
-are the throughput numbers on *your* hardware; nothing in this repo claims
-a number it did not measure in the run that printed it. The vLLM/SGLang
-engines track upstream APIs that move quickly — pin the versions in
-`deploy/docker/Dockerfile` if you are deploying.
+you build on an unusual toolchain, run `pytest tests/test_native.py` first.
+The throughput numbers you get from `kiln bench` are the throughput numbers
+on *your* hardware; nothing in this repo claims a number it did not measure
+in the run that printed it. The vLLM/SGLang engines track upstream APIs that
+move quickly — pin the versions in `deploy/docker/Dockerfile` if you are
+deploying.
 
 Roadmap: pipeline-parallel schedule inside the trainer (the mesh and groups
 exist, the 1F1B schedule does not yet), MoE expert parallelism, TensorRT-LLM
