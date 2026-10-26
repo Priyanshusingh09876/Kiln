@@ -39,7 +39,15 @@ class SLO:
     """Canary quality may be at most this much below baseline (absolute)."""
     max_latency_ratio: float | None = 1.2
     """Canary p99 may be at most this multiple of baseline p99."""
+    max_p50_ratio: float | None = 1.3
+    """Canary median may be at most this multiple of baseline median. Tails are noisy; a
+    regression that shifts the whole distribution can hide inside a noisy baseline p99
+    but not inside its median."""
     min_samples: int = 200
+    warmup_samples: int = 0
+    """Canary observations to ignore before judging it at all. A new replica starts with a
+    cold prefix/KV cache and, at a 1-5% traffic share, warms slowly; judging it immediately
+    against warm baseline replicas reports a regression that is really a cold cache."""
 
 
 @dataclass
@@ -89,10 +97,25 @@ class CanaryState:
 
 
 class CanaryController:
+    """Ramp a canary through ``ramp_steps``, judging it against a baseline window.
+
+    With ``matched_control=True`` the baseline window is fed only by a *control* arm: a
+    freshly started replica of the current build that receives exactly the same share
+    of traffic as the canary (the Kayenta pattern). Without it the canary is compared
+    with the warm fleet, which is biased against any new replica whose performance
+    depends on cache state — kiln's own load test shows a healthy canary being rolled
+    back for that reason (docs/benchmarks/gateway_demo.md).
+    """
+
     def __init__(
-        self, slo: SLO, ramp_steps: tuple[float, ...] = (0.01, 0.05, 0.25, 0.5, 1.0), window: int = 5000
+        self,
+        slo: SLO,
+        ramp_steps: tuple[float, ...] = (0.01, 0.05, 0.25, 0.5, 1.0),
+        window: int = 5000,
+        matched_control: bool = False,
     ):
         self.slo = slo
+        self.matched_control = matched_control
         self.ramp = ramp_steps
         self.step_index = 0
         self.baseline = _Window(window)
@@ -100,18 +123,38 @@ class CanaryController:
         self.tripped = False
         self.history: list[CanaryState] = []
         self._last_change = time.monotonic()
+        self.warmup_seen = 0
 
     # ------------------------------------------------------------ inputs
     @property
     def canary_share(self) -> float:
         return 0.0 if self.tripped else self.ramp[self.step_index]
 
+    @property
+    def control_share(self) -> float:
+        """Traffic share of the matched control arm (equal to the canary's, capped so both fit)."""
+        if not self.matched_control or self.tripped:
+            return 0.0
+        return min(self.canary_share, 1.0 - self.canary_share)
+
     def observe(self, arm: str, latency_s: float, ok: bool = True, quality: float | None = None) -> None:
-        (self.canary if arm == "canary" else self.baseline).add(latency_s, ok, quality)
+        if arm == "canary":
+            if self.warmup_seen < self.slo.warmup_samples:
+                self.warmup_seen += 1  # cold-cache period: count it, do not judge it
+                return
+            self.canary.add(latency_s, ok, quality)
+        elif arm == "control" or not self.matched_control:
+            self.baseline.add(latency_s, ok, quality)
+        # with a matched control, fleet ("baseline") traffic is served but not used for judgement
 
     def choose_arm(self, u: float) -> str:
-        """Route a request given a uniform sample ``u`` in [0,1)."""
-        return "canary" if u < self.canary_share else "baseline"
+        """Route a request given a uniform sample ``u`` in [0,1): canary, matched control, or fleet."""
+        c = self.canary_share
+        if u < c:
+            return "canary"
+        if u < c + self.control_share:
+            return "control"
+        return "baseline"
 
     # ----------------------------------------------------------- decision
     def evaluate(self) -> CanaryState:
@@ -132,6 +175,15 @@ class CanaryController:
                     SLOVerdict.LATENCY,
                     f"canary p99 {c99:.3f}s > {self.slo.max_latency_ratio}x baseline {b99:.3f}s",
                 )
+            elif (
+                self.slo.max_p50_ratio
+                and len(b) >= self.slo.min_samples
+                and c.pct(50) > b.pct(50) * self.slo.max_p50_ratio
+            ):
+                verdict, detail = (
+                    SLOVerdict.LATENCY,
+                    f"canary p50 {c.pct(50):.3f}s > {self.slo.max_p50_ratio}x baseline p50 {b.pct(50):.3f}s",
+                )
             elif self.slo.p50_latency_s and c.pct(50) > self.slo.p50_latency_s:
                 verdict, detail = (
                     SLOVerdict.LATENCY,
@@ -151,6 +203,8 @@ class CanaryController:
         elif verdict is SLOVerdict.PASS and not self.tripped and self.step_index < len(self.ramp) - 1:
             self.step_index += 1
             self.canary = _Window(self.canary.maxlen)  # fresh window at the new traffic level
+            if self.matched_control:  # the control moves to the same share, so its window restarts too
+                self.baseline = _Window(self.baseline.maxlen)
             detail = f"promoted to {self.ramp[self.step_index]:.0%}"
         state = CanaryState(
             self.canary_share,
