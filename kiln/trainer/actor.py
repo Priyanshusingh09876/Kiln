@@ -75,6 +75,9 @@ class PolicyTrainer:
     def build(cls, cfg: KilnConfig, pstate: ParallelState, pad_id: int = 0) -> PolicyTrainer:
         device = pstate.device()
         model = load_policy(cfg.model, device)
+        # snapshot the unsharded initial weights: the reference policy is a frozen copy of these,
+        # and copying from the model *after* sharding would hand it DTensor shards
+        init_state = {k: v.detach().clone() for k, v in model.state_dict().items()}
         param_dtype = torch.bfloat16 if cfg.model.dtype == "bf16" else torch.float32
         model = shard_model(
             model,
@@ -100,9 +103,7 @@ class PolicyTrainer:
             ref_model = load_policy(ref_cfg, device)
             if ref_cfg is cfg.model or ref_cfg.name_or_path == cfg.model.name_or_path:
                 # reference = frozen copy of the initial policy
-                ref_model.load_state_dict(
-                    {k: v.detach().clone() for k, v in model.state_dict().items()}, strict=False
-                )
+                ref_model.load_state_dict(init_state, strict=False)
             ref_model = shard_model(
                 ref_model, pstate, cfg.parallel, param_dtype=param_dtype, reshard_after_forward=False
             )
@@ -296,11 +297,16 @@ class PolicyTrainer:
         return s
 
     def load_state(self, model_state: dict[str, Any], extra: dict[str, Any]) -> None:
-        self.model.load_state_dict(model_state, strict=False)
+        from kiln.distributed import load_sharded_state_dict, rewrap_optimizer_state
+
+        missing = load_sharded_state_dict(self.model, model_state)
+        if missing:
+            raise KeyError(f"checkpoint is missing {len(missing)} model keys, e.g. {missing[:3]}")
         self.step = int(extra.get("step", 0))
         self.policy_version = int(extra.get("policy_version", 0))
         if "optimizer" in extra:
             self.optimizer.load_state_dict(extra["optimizer"])
+            rewrap_optimizer_state(self.optimizer)
         if "scheduler" in extra:
             self.scheduler.load_state_dict(extra["scheduler"])
         if self.critic is not None and "critic" in extra:

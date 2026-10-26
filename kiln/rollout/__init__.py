@@ -9,7 +9,14 @@ def build_engine(
 ) -> RolloutEngine:
     if cfg.engine == "mock":
         assert model is not None, "mock engine needs a model"
-        return MockEngine(model, eos_id=eos_id, seed=seed)
+        return MockEngine(
+            model,
+            eos_id=eos_id,
+            seed=seed,
+            latency_ms_per_token=cfg.mock_latency_ms_per_token,
+            median_tokens=cfg.mock_median_tokens,
+            length_sigma=cfg.mock_length_sigma,
+        )
     if cfg.engine == "vllm":
         from kiln.rollout.vllm_engine import VLLMEngine
 

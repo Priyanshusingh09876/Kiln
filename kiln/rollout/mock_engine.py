@@ -10,6 +10,8 @@ correctness oracle, not a throughput engine.
 from __future__ import annotations
 
 import copy
+import math
+import random
 import time
 from collections.abc import Iterable
 
@@ -23,7 +25,16 @@ from kiln.rollout.types import Sample
 class MockEngine(RolloutEngine):
     name = "mock"
 
-    def __init__(self, model: torch.nn.Module, eos_id: int | None = None, seed: int = 0, device: str = "cpu"):
+    def __init__(
+        self,
+        model: torch.nn.Module,
+        eos_id: int | None = None,
+        seed: int = 0,
+        device: str = "cpu",
+        latency_ms_per_token: float = 0.0,
+        median_tokens: int = 600,
+        length_sigma: float = 1.0,
+    ):
         super().__init__()
         self.model = copy.deepcopy(model).to(device).eval()
         self.eos_id = eos_id
@@ -31,6 +42,11 @@ class MockEngine(RolloutEngine):
         self.gen = torch.Generator(device="cpu").manual_seed(seed)
         self._tokens_generated = 0
         self._gen_seconds = 0.0
+        self.latency_ms_per_token = latency_ms_per_token
+        self.median_tokens = median_tokens
+        self.length_sigma = length_sigma
+        self._lat_rng = random.Random(seed + 7919)
+        self.simulated_seconds = 0.0
 
     @torch.no_grad()
     def generate(self, requests: list[GenerationRequest], sampling: SamplingConfig) -> list[Sample]:
@@ -70,6 +86,17 @@ class MockEngine(RolloutEngine):
                         meta=dict(req.meta or {}),
                     )
                 )
+        if self.latency_ms_per_token > 0:
+            # a generate() call returns when its longest response finishes; sleeping releases the GIL,
+            # so the trainer thread really runs concurrently, as it would with the engine on other GPUs
+            n_resp = len(out)
+            lengths = [
+                self.median_tokens * math.exp(self.length_sigma * self._lat_rng.gauss(0, 1))
+                for _ in range(n_resp)
+            ]
+            delay = max(lengths) * self.latency_ms_per_token / 1e3
+            self.simulated_seconds += delay
+            time.sleep(delay)
         self._gen_seconds += time.perf_counter() - t0
         return out
 
@@ -80,6 +107,13 @@ class MockEngine(RolloutEngine):
             if name in sd:
                 sd[name].copy_(t.to(sd[name].device, sd[name].dtype))
         self.policy_version = version
+
+    def state_dict(self) -> dict:
+        return {"rng": self.gen.get_state()}
+
+    def load_state_dict(self, state: dict) -> None:
+        if "rng" in state:
+            self.gen.set_state(state["rng"])
 
     def stats(self) -> dict[str, float]:
         return {

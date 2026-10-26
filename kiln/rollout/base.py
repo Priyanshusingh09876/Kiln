@@ -70,3 +70,10 @@ class RolloutEngine(ABC):
 
     def stats(self) -> dict[str, float]:
         return {}
+
+    def state_dict(self) -> dict:
+        """Sampler state needed for an exact resume (e.g. RNG). Default: nothing."""
+        return {}
+
+    def load_state_dict(self, state: dict) -> None:  # noqa: B027 - optional hook
+        """Restore what :meth:`state_dict` returned."""

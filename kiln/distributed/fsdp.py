@@ -57,11 +57,15 @@ def shard_model(
     reshard_after_forward: bool | None = None,
     activation_checkpointing: bool = False,
 ) -> nn.Module:
-    if not pstate.initialized or pstate.mesh is None or pcfg.dp == 1 or not torch.cuda.is_available():
+    if not pstate.initialized or pstate.mesh is None or pcfg.dp == 1:
         if activation_checkpointing:
             apply_activation_checkpointing(model)
         return model
     from torch.distributed.fsdp import CPUOffloadPolicy, MixedPrecisionPolicy, fully_shard
+
+    if not torch.cuda.is_available():
+        # FSDP2 runs on CPU over gloo (used by the multi-rank tests); bf16 compute on CPU is slow and lossy
+        param_dtype = torch.float32
 
     mp = MixedPrecisionPolicy(param_dtype=param_dtype, reduce_dtype=torch.float32, output_dtype=param_dtype)
     reshard = pcfg.fsdp_reshard_after_forward if reshard_after_forward is None else reshard_after_forward
@@ -94,6 +98,54 @@ def sharded_state_dict(model: nn.Module) -> dict[str, torch.Tensor]:
         return get_model_state_dict(model, options=StateDictOptions(full_state_dict=False))
     except Exception:
         return model.state_dict()
+
+
+def _is_dtensor(t: object) -> bool:
+    return hasattr(t, "to_local") and hasattr(t, "device_mesh")
+
+
+@torch.no_grad()
+def load_sharded_state_dict(model: nn.Module, state: dict[str, torch.Tensor]) -> list[str]:
+    """Load a state dict saved as *local shards* (what the checkpointer writes) into a model.
+
+    For FSDP2 parameters (DTensors) each saved tensor is this rank's local shard and is
+    copied into ``param.to_local()``; plain parameters are copied directly. Returns the
+    list of model keys that were not found in ``state`` (should be empty).
+    """
+    own = model.state_dict()
+    missing = []
+    for k, dst in own.items():
+        if k not in state:
+            missing.append(k)
+            continue
+        src = state[k]
+        local = dst.to_local() if _is_dtensor(dst) else dst
+        if src.shape != local.shape:
+            raise ValueError(
+                f"shape mismatch for {k}: checkpoint {tuple(src.shape)} vs model shard {tuple(local.shape)}"
+            )
+        local.copy_(src.to(local.device, local.dtype))
+    return missing
+
+
+def rewrap_optimizer_state(optimizer: torch.optim.Optimizer) -> None:
+    """After ``optimizer.load_state_dict`` from local shards, turn state tensors back into DTensors
+    matching their parameter, so the next ``step`` does not mix DTensor params with plain state."""
+    try:
+        from torch.distributed.tensor import DTensor
+    except ImportError:  # pragma: no cover
+        return
+    for group in optimizer.param_groups:
+        for p in group["params"]:
+            if not _is_dtensor(p) or p not in optimizer.state:
+                continue
+            st = optimizer.state[p]
+            local_shape = p.to_local().shape
+            for name, v in list(st.items()):
+                if isinstance(v, torch.Tensor) and not _is_dtensor(v) and v.shape == local_shape:
+                    st[name] = DTensor.from_local(
+                        v.to(p.device), p.device_mesh, p.placements, run_check=False
+                    )
 
 
 def clip_grad_norm(model: nn.Module, max_norm: float) -> torch.Tensor:

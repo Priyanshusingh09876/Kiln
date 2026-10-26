@@ -69,9 +69,26 @@ def _world() -> int:
     return dist.get_world_size() if _dist_ok() else 1
 
 
+_CKPT_GROUP = None
+
+
+def _ckpt_group():
+    """A dedicated gloo process group for checkpoint coordination.
+
+    The writer thread must not issue collectives on the training process group:
+    two threads driving collectives on one group can interleave and deadlock.
+    Created lazily on the *main* thread (``AsyncCheckpointer.__init__``) because
+    ``new_group`` is itself a collective every rank must enter in order.
+    """
+    global _CKPT_GROUP
+    if _CKPT_GROUP is None and _dist_ok():
+        _CKPT_GROUP = dist.new_group(backend="gloo")
+    return _CKPT_GROUP
+
+
 def _barrier() -> None:
     if _dist_ok():
-        dist.barrier()
+        dist.barrier(group=_ckpt_group())
 
 
 @dataclass
@@ -103,6 +120,7 @@ class AsyncCheckpointer:
         self.cfg = cfg
         self.root = Path(run_dir or cfg.dir)
         self.root.mkdir(parents=True, exist_ok=True)
+        _ckpt_group()  # create on the main thread, in lockstep on every rank
         self._host = _HostBuffers()
         self._thread: threading.Thread | None = None
         self._error: BaseException | None = None

@@ -168,3 +168,19 @@ def test_cli_train_smoke(tmp_path):
 def test_sample_dataclass_defaults():
     s = Sample([1], [2], [-0.1], 0, 0)
     assert s.total_len == 2 and s.reward is None and s.finish_reason == "stop"
+
+
+def test_sync_mode_splits_each_batch_across_all_engines(tmp_path):
+    """Fair baseline for the async benchmark: sync generates one batch with every engine in parallel."""
+    cfg = _cfg(
+        tmp_path,
+        **{"async": {"enabled": False, "queue_depth": 1, "max_staleness": 0}, "train": {"total_steps": 3}},
+    )
+    cfg.rollout.num_engines = 2
+    ctl = AsyncController.from_config(cfg, rows=ROWS, reward_fn=first_byte_reward)
+    assert all(
+        w.prompts_per_batch == 2 for w in ctl.workers
+    )  # 32 samples / n=8 = 4 prompts, split over 2 engines
+    res = ctl.run()
+    assert [w.batches_produced for w in ctl.workers] == [3, 3]
+    assert res.steps == 3

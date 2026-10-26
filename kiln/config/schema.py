@@ -47,6 +47,18 @@ class ParallelConfig(_Strict):
     def world_size(self) -> int:
         return self.dp * self.tp * self.pp * self.cp
 
+    @model_validator(mode="after")
+    def _only_implemented(self) -> ParallelConfig:
+        # The device mesh can express tp/pp/cp, but no model code shards along them yet
+        # (see docs/STATUS.md). Accepting them would silently duplicate work on those ranks.
+        unsupported = {k: getattr(self, k) for k in ("tp", "pp", "cp") if getattr(self, k) != 1}
+        if unsupported:
+            raise ValueError(
+                f"{unsupported}: tensor/pipeline/context parallelism is not implemented in the trainer yet; "
+                "use data-parallel FSDP2 (parallel.dp) — see docs/STATUS.md"
+            )
+        return self
+
 
 class OptimConfig(_Strict):
     lr: float = 1e-6
@@ -93,6 +105,14 @@ class RolloutConfig(_Strict):
     sglang_urls: list[str] = Field(default_factory=list)
     partial_rollout: bool = True
     """Pause in-flight generation, swap weights, resume (instead of draining)."""
+    mock_latency_ms_per_token: float = 0.0
+    """Mock engine only: add simulated decode time so CPU runs can model a GPU engine's
+    wall-clock behaviour. Each batch takes as long as its *longest* simulated response,
+    which is what makes synchronous RL wait on the length tail. 0 disables."""
+    mock_median_tokens: int = 600
+    mock_length_sigma: float = 1.0
+    """Simulated response lengths are lognormal(median, sigma); sigma=1 gives p99/p50 ~ 10x,
+    in line with reasoning-model traces."""
 
 
 class AsyncConfig(_Strict):

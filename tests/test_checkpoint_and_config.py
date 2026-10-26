@@ -146,3 +146,10 @@ def test_all_shipped_configs_validate():
     assert files, "no configs shipped"
     for f in files:
         KilnConfig.from_yaml(os.path.join(root, f))
+
+
+def test_unimplemented_parallelism_is_rejected():
+    for dim in ("tp", "pp", "cp"):
+        with pytest.raises(ValueError, match="not implemented"):
+            KilnConfig.model_validate({"parallel": {dim: 2}})
+    assert KilnConfig.model_validate({"parallel": {"dp": 8}}).parallel.world_size == 8

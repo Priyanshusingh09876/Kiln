@@ -1,5 +1,6 @@
 # PPO with a learned critic and a reward model, Llama-3.1-70B, 64 GPUs:
-#   trainer: dp=4 x tp=8 (32 GPUs, FSDP2 + TP) ; rollouts: 8 vLLM engines x tp=4 (32 GPUs)
+#   trainer: FSDP2 over 32 GPUs (dp=32; tensor parallelism in the trainer is not implemented yet)
+#   rollouts: 8 vLLM engines x tp=4 (32 GPUs; this is vLLM's own TP inside each engine)
 model:
   name_or_path: "${MODEL_PATH:-meta-llama/Llama-3.1-70B-Instruct}"
   dtype: bf16
@@ -9,7 +10,7 @@ reference:
   name_or_path: "${MODEL_PATH:-meta-llama/Llama-3.1-70B-Instruct}"
   dtype: bf16
   attn_impl: flash
-parallel: {dp: 4, tp: 8, pp: 1, cp: 1, fsdp_cpu_offload: false}
+parallel: {dp: 32, fsdp_cpu_offload: false}
 train:
   total_steps: 400
   rollout_batch_size: 1024

@@ -90,11 +90,13 @@ class RolloutWorker:
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self.error: BaseException | None = None
+        self.batches_produced = 0
 
     # ------------------------------------------------------------ one batch
     def produce_batch(self):
         """Generate, score and collate one batch. Returns ``(batch, version)``."""
         prompts = next(self.prompts)
+        self.batches_produced += 1
         sampling = self.cfg.rollout.sampling
         reqs = [
             GenerationRequest(
@@ -165,6 +167,23 @@ class RolloutWorker:
         self._stop.set()
         if join and self._thread is not None:
             self._thread.join(timeout=30)
+
+    # --------------------------------------------------------------- resume
+    def state_dict(self) -> dict:
+        """Position in the (deterministic, seeded) prompt stream + engine sampler state.
+
+        In synchronous mode this makes a resumed run bit-identical to an
+        uninterrupted one. In asynchronous mode batches that were in flight
+        (generated, not yet trained on) at checkpoint time are skipped on resume.
+        """
+        return {"batches_produced": self.batches_produced, "engine": self.engine.state_dict()}
+
+    def load_state_dict(self, state: dict) -> None:
+        n = int(state.get("batches_produced", 0))
+        for _ in range(n - self.batches_produced):
+            next(self.prompts)
+        self.batches_produced = max(n, self.batches_produced)
+        self.engine.load_state_dict(state.get("engine", {}))
 
     def metrics(self) -> dict[str, float]:
         m = self.stats.as_metrics()
