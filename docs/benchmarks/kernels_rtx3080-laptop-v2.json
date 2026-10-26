@@ -1,0 +1,1621 @@
+{
+  "meta": {
+    "date": "2026-10-26",
+    "device": "NVIDIA GeForce RTX 3080 Ti Laptop GPU",
+    "torch": "2.14.1+cu126",
+    "cuda": "12.6",
+    "backends": {
+      "naive": null,
+      "torch": null,
+      "compile": null,
+      "liger": null,
+      "triton": null,
+      "cuda": "kiln._cuda not built (needs nvcc at install time)"
+    },
+    "iters": 20,
+    "copy_bandwidth_gbs": 418.092503147623,
+    "spec_bandwidth_gbs": 448.064,
+    "triton_autotune": true,
+    "command": "python scripts/bench_kernels.py --tag rtx3080-laptop-v2"
+  },
+  "rows": [
+    {
+      "shape": "4096\u00d732000",
+      "ms": 38.93260001495946,
+      "peak_mb": 2500.03125,
+      "err": {
+        "logp": 1.164334737069339e-06,
+        "entropy": 2.8433430685481653e-06,
+        "grad": 0.00780690902683201
+      },
+      "min_bytes": 786432000,
+      "logits_mb": 250.0,
+      "kernel": "logprob+entropy",
+      "dtype": "bfloat16",
+      "backend": "naive",
+      "tolerance": 0.03,
+      "pass": true,
+      "gbs": 20.199832523330613,
+      "pct_copy_bw": 4.831426627183103,
+      "pct_spec_bw": 4.508247152935878
+    },
+    {
+      "shape": "4096\u00d732000",
+      "ms": 8.717950011487119,
+      "peak_mb": 1250.0625,
+      "err": {
+        "logp": 1.1497993241960103e-06,
+        "entropy": 2.7742858907942036e-06,
+        "grad": 0.00780690902683201
+      },
+      "min_bytes": 786432000,
+      "logits_mb": 250.0,
+      "kernel": "logprob+entropy",
+      "dtype": "bfloat16",
+      "backend": "compile",
+      "tolerance": 0.03,
+      "pass": true,
+      "gbs": 90.20836308579032,
+      "pct_copy_bw": 21.576173312521448,
+      "pct_spec_bw": 20.132919200335294
+    },
+    {
+      "shape": "4096\u00d732000",
+      "ms": 3.9104499883251265,
+      "peak_mb": 0.04345703125,
+      "err": {
+        "logp": 0.06248129274760217,
+        "grad": 0.0019274746689135203
+      },
+      "min_bytes": 786432000,
+      "note": "CE only, no entropy; gradient written in place",
+      "kernel": "logprob+entropy",
+      "dtype": "bfloat16",
+      "backend": "liger",
+      "tolerance": 0.03,
+      "pass": false,
+      "gbs": 201.1103587433513,
+      "pct_copy_bw": 48.10188109791145,
+      "pct_spec_bw": 44.88429303477881
+    },
+    {
+      "shape": "4096\u00d732000",
+      "ms": 50.43290001049172,
+      "peak_mb": 1506.083984375,
+      "err": {
+        "logp": 1.4025651644544723e-06,
+        "entropy": 1.6383436020284137e-05,
+        "grad": 0.00780690902683201
+      },
+      "min_bytes": 786432000,
+      "logits_mb": 250.0,
+      "kernel": "logprob+entropy",
+      "dtype": "bfloat16",
+      "backend": "torch",
+      "tolerance": 0.03,
+      "pass": true,
+      "gbs": 15.593630345199184,
+      "pct_copy_bw": 3.7297081932352363,
+      "pct_spec_bw": 3.480223884355624
+    },
+    {
+      "shape": "4096\u00d732000",
+      "ms": 2.154900023015216,
+      "peak_mb": 250.046875,
+      "err": {
+        "logp": 1.4025651644544723e-06,
+        "entropy": 5.418840939519498e-06,
+        "grad": 0.00780690902683201
+      },
+      "min_bytes": 786432000,
+      "logits_mb": 250.0,
+      "kernel": "logprob+entropy",
+      "dtype": "bfloat16",
+      "backend": "triton",
+      "tolerance": 0.03,
+      "pass": true,
+      "gbs": 364.95057385520613,
+      "pct_copy_bw": 87.28943262738841,
+      "pct_spec_bw": 81.45054587184111
+    },
+    {
+      "kernel": "logprob+entropy",
+      "dtype": "bfloat16",
+      "backend": "cuda",
+      "skipped": "kiln._cuda not built (needs nvcc at install time)"
+    },
+    {
+      "shape": "4096\u00d7128256",
+      "ms": 153.55724999972153,
+      "peak_mb": 10020.03125,
+      "err": {
+        "logp": 1.3235928228993998e-06,
+        "entropy": 3.8688181094315155e-06,
+        "grad": 0.015625229522868267
+      },
+      "min_bytes": 3152019456,
+      "logits_mb": 1002.0,
+      "kernel": "logprob+entropy",
+      "dtype": "bfloat16",
+      "backend": "naive",
+      "tolerance": 0.03,
+      "pass": true,
+      "gbs": 20.526672990078396,
+      "pct_copy_bw": 4.9096008265019515,
+      "pct_spec_bw": 4.581192193543421
+    },
+    {
+      "shape": "4096\u00d7128256",
+      "ms": 40.85674999805633,
+      "peak_mb": 5010.0625,
+      "err": {
+        "logp": 1.1727110020842701e-06,
+        "entropy": 4.178803216348115e-06,
+        "grad": 0.015625229522868267
+      },
+      "min_bytes": 3152019456,
+      "logits_mb": 1002.0,
+      "kernel": "logprob+entropy",
+      "dtype": "bfloat16",
+      "backend": "compile",
+      "tolerance": 0.03,
+      "pass": true,
+      "gbs": 77.14807115470394,
+      "pct_copy_bw": 18.452392849403463,
+      "pct_spec_bw": 17.21809186962218
+    },
+    {
+      "shape": "4096\u00d7128256",
+      "ms": 14.656650004326366,
+      "peak_mb": 0.04345703125,
+      "err": {
+        "logp": 0.06248314484848194,
+        "grad": 0.0017727197320022148
+      },
+      "min_bytes": 3152019456,
+      "note": "CE only, no entropy; gradient written in place",
+      "kernel": "logprob+entropy",
+      "dtype": "bfloat16",
+      "backend": "liger",
+      "tolerance": 0.03,
+      "pass": false,
+      "gbs": 215.05729174603906,
+      "pct_copy_bw": 51.43772971937388,
+      "pct_spec_bw": 47.99700305001942
+    },
+    {
+      "shape": "4096\u00d7128256",
+      "ms": 175.89769999904092,
+      "peak_mb": 2282.046875,
+      "err": {
+        "logp": 1.1857997161968115e-06,
+        "entropy": 1.595742817261936e-05,
+        "grad": 0.015624770477131733
+      },
+      "min_bytes": 3152019456,
+      "logits_mb": 1002.0,
+      "kernel": "logprob+entropy",
+      "dtype": "bfloat16",
+      "backend": "torch",
+      "tolerance": 0.03,
+      "pass": true,
+      "gbs": 17.919617232159297,
+      "pct_copy_bw": 4.286041270113881,
+      "pct_spec_bw": 3.999343226003271
+    },
+    {
+      "shape": "4096\u00d7128256",
+      "ms": 10.316250016330741,
+      "peak_mb": 1002.046875,
+      "err": {
+        "logp": 1.3315214637543704e-06,
+        "entropy": 4.868154991122253e-06,
+        "grad": 0.015624770477131733
+      },
+      "min_bytes": 3152019456,
+      "logits_mb": 1002.0,
+      "kernel": "logprob+entropy",
+      "dtype": "bfloat16",
+      "backend": "triton",
+      "tolerance": 0.03,
+      "pass": true,
+      "gbs": 305.53926581949037,
+      "pct_copy_bw": 73.07934572354876,
+      "pct_spec_bw": 68.1909874079351
+    },
+    {
+      "kernel": "logprob+entropy",
+      "dtype": "bfloat16",
+      "backend": "cuda",
+      "skipped": "kiln._cuda not built (needs nvcc at install time)"
+    },
+    {
+      "shape": "2048\u00d7151936",
+      "ms": 91.23264999652747,
+      "peak_mb": 5940.015625,
+      "err": {
+        "logp": 1.2329506802188916e-06,
+        "entropy": 4.363136634211173e-06,
+        "grad": 0.007812286232802723
+      },
+      "min_bytes": 1866989568,
+      "logits_mb": 593.5,
+      "kernel": "logprob+entropy",
+      "dtype": "bfloat16",
+      "backend": "naive",
+      "tolerance": 0.03,
+      "pass": true,
+      "gbs": 20.46405062300681,
+      "pct_copy_bw": 4.8946227136202,
+      "pct_spec_bw": 4.567215983209275
+    },
+    {
+      "shape": "2048\u00d7151936",
+      "ms": 20.841249992372468,
+      "peak_mb": 2970.03125,
+      "err": {
+        "logp": 1.2535247293499197e-06,
+        "entropy": 4.771079005649881e-06,
+        "grad": 0.007812286232802723
+      },
+      "min_bytes": 1866989568,
+      "logits_mb": 593.5,
+      "kernel": "logprob+entropy",
+      "dtype": "bfloat16",
+      "backend": "compile",
+      "tolerance": 0.03,
+      "pass": true,
+      "gbs": 89.5814583426275,
+      "pct_copy_bw": 21.426229283761508,
+      "pct_spec_bw": 19.993005093608836
+    },
+    {
+      "shape": "2048\u00d7151936",
+      "ms": 7.16880000254605,
+      "peak_mb": 0.02197265625,
+      "err": {
+        "logp": 0.06247626219949609,
+        "grad": 0.001343824548352912
+      },
+      "min_bytes": 1866989568,
+      "note": "CE only, no entropy; gradient written in place",
+      "kernel": "logprob+entropy",
+      "dtype": "bfloat16",
+      "backend": "liger",
+      "tolerance": 0.03,
+      "pass": false,
+      "gbs": 260.432648049454,
+      "pct_copy_bw": 62.29067636677967,
+      "pct_spec_bw": 58.12398408474101
+    },
+    {
+      "shape": "2048\u00d7151936",
+      "ms": 102.55759999563452,
+      "peak_mb": 1874.0234375,
+      "err": {
+        "logp": 1.2535247293499197e-06,
+        "entropy": 1.6495836648644513e-05,
+        "grad": 0.007812286232802723
+      },
+      "min_bytes": 1866989568,
+      "logits_mb": 593.5,
+      "kernel": "logprob+entropy",
+      "dtype": "bfloat16",
+      "backend": "torch",
+      "tolerance": 0.03,
+      "pass": true,
+      "gbs": 18.204302441549633,
+      "pct_copy_bw": 4.354132710942662,
+      "pct_spec_bw": 4.062879954995187
+    },
+    {
+      "shape": "2048\u00d7151936",
+      "ms": 5.341500014765188,
+      "peak_mb": 594.0234375,
+      "err": {
+        "logp": 1.2334958121584805e-06,
+        "entropy": 3.874905969425413e-06,
+        "grad": 0.007812286232802723
+      },
+      "min_bytes": 1866989568,
+      "logits_mb": 593.5,
+      "kernel": "logprob+entropy",
+      "dtype": "bfloat16",
+      "backend": "triton",
+      "tolerance": 0.03,
+      "pass": true,
+      "gbs": 349.5253323671614,
+      "pct_copy_bw": 83.59999993679594,
+      "pct_spec_bw": 78.00790341718178
+    },
+    {
+      "kernel": "logprob+entropy",
+      "dtype": "bfloat16",
+      "backend": "cuda",
+      "skipped": "kiln._cuda not built (needs nvcc at install time)"
+    },
+    {
+      "shape": "256\u00d7128256",
+      "ms": 11.438300003646873,
+      "peak_mb": 630.001953125,
+      "err": {
+        "logp": 1.3235928228993998e-06,
+        "entropy": 2.8996795151670085e-06,
+        "grad": 0.007718255754572301
+      },
+      "min_bytes": 197001216,
+      "logits_mb": 62.625,
+      "kernel": "logprob+entropy",
+      "dtype": "bfloat16",
+      "backend": "naive",
+      "tolerance": 0.03,
+      "pass": true,
+      "gbs": 17.222945362264507,
+      "pct_copy_bw": 4.119410234003481,
+      "pct_spec_bw": 3.843858324316282
+    },
+    {
+      "shape": "256\u00d7128256",
+      "ms": 4.120700003113598,
+      "peak_mb": 314.62890625,
+      "err": {
+        "logp": 1.1395924808255131e-06,
+        "entropy": 3.62317209834373e-06,
+        "grad": 0.007718255754572301
+      },
+      "min_bytes": 197001216,
+      "logits_mb": 62.625,
+      "kernel": "logprob+entropy",
+      "dtype": "bfloat16",
+      "backend": "compile",
+      "tolerance": 0.03,
+      "pass": true,
+      "gbs": 47.807706421517224,
+      "pct_copy_bw": 11.4347198434785,
+      "pct_spec_bw": 10.66983877783469
+    },
+    {
+      "shape": "256\u00d7128256",
+      "ms": 1.4765999949304387,
+      "peak_mb": 0.00341796875,
+      "err": {
+        "logp": 0.062474620711963524,
+        "grad": 0.0009139967515873204
+      },
+      "min_bytes": 197001216,
+      "note": "CE only, no entropy; gradient written in place",
+      "kernel": "logprob+entropy",
+      "dtype": "bfloat16",
+      "backend": "liger",
+      "tolerance": 0.03,
+      "pass": false,
+      "gbs": 133.41542508218723,
+      "pct_copy_bw": 31.9105040338597,
+      "pct_spec_bw": 29.775975102259327
+    },
+    {
+      "shape": "256\u00d7128256",
+      "ms": 12.961350003024563,
+      "peak_mb": 441.37890625,
+      "err": {
+        "logp": 1.104859396861002e-06,
+        "entropy": 1.595742817261936e-05,
+        "grad": 0.007718255754572301
+      },
+      "min_bytes": 197001216,
+      "logits_mb": 62.625,
+      "kernel": "logprob+entropy",
+      "dtype": "bfloat16",
+      "backend": "torch",
+      "tolerance": 0.03,
+      "pass": true,
+      "gbs": 15.199127865078042,
+      "pct_copy_bw": 3.6353504907767813,
+      "pct_spec_bw": 3.392177873044485
+    },
+    {
+      "shape": "256\u00d7128256",
+      "ms": 0.8960499981185421,
+      "peak_mb": 62.6279296875,
+      "err": {
+        "logp": 1.1581086223344528e-06,
+        "entropy": 4.466262693014755e-06,
+        "grad": 0.007718255754572301
+      },
+      "min_bytes": 197001216,
+      "logits_mb": 62.625,
+      "kernel": "logprob+entropy",
+      "dtype": "bfloat16",
+      "backend": "triton",
+      "tolerance": 0.03,
+      "pass": true,
+      "gbs": 219.8551603299461,
+      "pct_copy_bw": 52.58529121540314,
+      "pct_spec_bw": 49.067802887521886
+    },
+    {
+      "kernel": "logprob+entropy",
+      "dtype": "bfloat16",
+      "backend": "cuda",
+      "skipped": "kiln._cuda not built (needs nvcc at install time)"
+    },
+    {
+      "shape": "64\u00d7151936",
+      "ms": 3.521899998304434,
+      "peak_mb": 190.0009765625,
+      "err": {
+        "logp": 1.0784539483665867e-06,
+        "entropy": 3.1951134991103913e-06,
+        "grad": 0.004533766556876984
+      },
+      "min_bytes": 58343424,
+      "logits_mb": 18.546875,
+      "kernel": "logprob+entropy",
+      "dtype": "bfloat16",
+      "backend": "naive",
+      "tolerance": 0.03,
+      "pass": true,
+      "gbs": 16.565894553533198,
+      "pct_copy_bw": 3.9622558234879417,
+      "pct_spec_bw": 3.6972161462499105
+    },
+    {
+      "shape": "64\u00d7151936",
+      "ms": 1.1255499994149432,
+      "peak_mb": 76.001953125,
+      "err": {
+        "logp": 1.0586355578823259e-06,
+        "entropy": 2.745555859107185e-06,
+        "grad": 0.004533766556876984
+      },
+      "min_bytes": 58343424,
+      "logits_mb": 18.546875,
+      "kernel": "logprob+entropy",
+      "dtype": "bfloat16",
+      "backend": "compile",
+      "tolerance": 0.03,
+      "pass": true,
+      "gbs": 51.83547957027827,
+      "pct_copy_bw": 12.39808874352761,
+      "pct_spec_bw": 11.568766865956261
+    },
+    {
+      "shape": "64\u00d7151936",
+      "ms": 1.1294500000076368,
+      "peak_mb": 0.00244140625,
+      "err": {
+        "logp": 0.06049731227544797,
+        "grad": 0.0009732109709896797
+      },
+      "min_bytes": 58343424,
+      "note": "CE only, no entropy; gradient written in place",
+      "kernel": "logprob+entropy",
+      "dtype": "bfloat16",
+      "backend": "liger",
+      "tolerance": 0.03,
+      "pass": false,
+      "gbs": 51.656491212187795,
+      "pct_copy_bw": 12.355278036149947,
+      "pct_spec_bw": 11.528819814175607
+    },
+    {
+      "shape": "64\u00d7151936",
+      "ms": 3.4606499975780025,
+      "peak_mb": 133.455078125,
+      "err": {
+        "logp": 1.1184317934009869e-06,
+        "entropy": 1.1945632996557265e-05,
+        "grad": 0.004533766556876984
+      },
+      "min_bytes": 58343424,
+      "logits_mb": 18.546875,
+      "kernel": "logprob+entropy",
+      "dtype": "bfloat16",
+      "backend": "torch",
+      "tolerance": 0.03,
+      "pass": true,
+      "gbs": 16.859094112618347,
+      "pct_copy_bw": 4.032383739410324,
+      "pct_spec_bw": 3.7626531282625577
+    },
+    {
+      "shape": "64\u00d7151936",
+      "ms": 1.4318000030471012,
+      "peak_mb": 18.54833984375,
+      "err": {
+        "logp": 1.1099475010212245e-06,
+        "entropy": 2.274376389443944e-06,
+        "grad": 0.004533766556876984
+      },
+      "min_bytes": 58343424,
+      "logits_mb": 18.546875,
+      "kernel": "logprob+entropy",
+      "dtype": "bfloat16",
+      "backend": "triton",
+      "tolerance": 0.03,
+      "pass": true,
+      "gbs": 40.74830554255887,
+      "pct_copy_bw": 9.746241617772126,
+      "pct_spec_bw": 9.09430472935984
+    },
+    {
+      "kernel": "logprob+entropy",
+      "dtype": "bfloat16",
+      "backend": "cuda",
+      "skipped": "kiln._cuda not built (needs nvcc at install time)"
+    },
+    {
+      "shape": "16384\u00d74096",
+      "ms": 23.785949990269728,
+      "peak_mb": 1664.0078125,
+      "err": {
+        "y": 0.015622151365822567,
+        "dx": 0.015619924669415752,
+        "dw": 6.04894229604136e-05
+      },
+      "min_bytes": 671088640,
+      "kernel": "rmsnorm",
+      "dtype": "bfloat16",
+      "backend": "naive",
+      "tolerance": 0.03,
+      "pass": true,
+      "gbs": 28.21365723355706,
+      "pct_copy_bw": 6.748185394655399,
+      "pct_spec_bw": 6.296791805089688
+    },
+    {
+      "shape": "16384\u00d74096",
+      "ms": 2.8260499966563657,
+      "peak_mb": 264.09375,
+      "err": {
+        "y": 0.015622151365822567,
+        "dx": 0.015619924669415752,
+        "dw": 6.04894229604136e-05
+      },
+      "min_bytes": 671088640,
+      "kernel": "rmsnorm",
+      "dtype": "bfloat16",
+      "backend": "compile",
+      "tolerance": 0.03,
+      "pass": true,
+      "gbs": 237.46523974947257,
+      "pct_copy_bw": 56.79729676129273,
+      "pct_spec_bw": 52.99806272083286
+    },
+    {
+      "shape": "16384\u00d74096",
+      "ms": 2.852400008123368,
+      "peak_mb": 256.9921875,
+      "err": {
+        "y": 0.03279492522392413,
+        "dx": 0.015619924669415752,
+        "dw": 0.00010053299591172155
+      },
+      "min_bytes": 671088640,
+      "kernel": "rmsnorm",
+      "dtype": "bfloat16",
+      "backend": "liger",
+      "tolerance": 0.03,
+      "pass": false,
+      "gbs": 235.27157414416016,
+      "pct_copy_bw": 56.272612489559236,
+      "pct_spec_bw": 52.50847516072707
+    },
+    {
+      "shape": "16384\u00d74096",
+      "ms": 26.24370000557974,
+      "peak_mb": 1536.125,
+      "err": {
+        "y": 0.015622151365822567,
+        "dx": 0.015619924669415752,
+        "dw": 6.04894229604136e-05
+      },
+      "min_bytes": 671088640,
+      "kernel": "rmsnorm",
+      "dtype": "bfloat16",
+      "backend": "torch",
+      "tolerance": 0.03,
+      "pass": true,
+      "gbs": 25.57141865885215,
+      "pct_copy_bw": 6.116210758704567,
+      "pct_spec_bw": 5.707090651972073
+    },
+    {
+      "shape": "16384\u00d74096",
+      "ms": 4.290749988285825,
+      "peak_mb": 556.07861328125,
+      "err": {
+        "y": 0.015622151365822567,
+        "dx": 0.015619924669415752,
+        "dw": 6.04894229604136e-05
+      },
+      "min_bytes": 671088640,
+      "kernel": "rmsnorm",
+      "dtype": "bfloat16",
+      "backend": "triton",
+      "tolerance": 0.03,
+      "pass": true,
+      "gbs": 156.40357555954992,
+      "pct_copy_bw": 37.408844784840795,
+      "pct_spec_bw": 34.9065257551488
+    },
+    {
+      "kernel": "rmsnorm",
+      "dtype": "bfloat16",
+      "backend": "cuda",
+      "skipped": "kiln._cuda not built (needs nvcc at install time)"
+    },
+    {
+      "shape": "8192\u00d78192",
+      "ms": 32.29930000088643,
+      "peak_mb": 1664.015625,
+      "err": {
+        "y": 0.015621643306832134,
+        "dx": 0.015624588224396163,
+        "dw": 0.00011860586571368209
+      },
+      "min_bytes": 671088640,
+      "kernel": "rmsnorm",
+      "dtype": "bfloat16",
+      "backend": "naive",
+      "tolerance": 0.03,
+      "pass": true,
+      "gbs": 20.77718835954904,
+      "pct_copy_bw": 4.969519473113558,
+      "pct_spec_bw": 4.637102815568544
+    },
+    {
+      "shape": "8192\u00d78192",
+      "ms": 3.479000006336719,
+      "peak_mb": 256.046875,
+      "err": {
+        "y": 0.015621643306832134,
+        "dx": 0.015624588224396163,
+        "dw": 0.00011860586571368209
+      },
+      "min_bytes": 671088640,
+      "kernel": "rmsnorm",
+      "dtype": "bfloat16",
+      "backend": "compile",
+      "tolerance": 0.03,
+      "pass": true,
+      "gbs": 192.8969930375585,
+      "pct_copy_bw": 46.137395812009835,
+      "pct_spec_bw": 43.051214343834474
+    },
+    {
+      "shape": "8192\u00d78192",
+      "ms": 22.60845000273548,
+      "peak_mb": 257.890625,
+      "err": {
+        "y": 0.033053210313549464,
+        "dx": 0.015624588224396163,
+        "dw": 0.00015082787362155278
+      },
+      "min_bytes": 671088640,
+      "kernel": "rmsnorm",
+      "dtype": "bfloat16",
+      "backend": "liger",
+      "tolerance": 0.03,
+      "pass": false,
+      "gbs": 29.683089283820983,
+      "pct_copy_bw": 7.09964638455626,
+      "pct_spec_bw": 6.624743180398554
+    },
+    {
+      "shape": "8192\u00d78192",
+      "ms": 23.082900006556883,
+      "peak_mb": 1536.0625,
+      "err": {
+        "y": 0.015621643306832134,
+        "dx": 0.015624588224396163,
+        "dw": 0.00011860586571368209
+      },
+      "min_bytes": 671088640,
+      "kernel": "rmsnorm",
+      "dtype": "bfloat16",
+      "backend": "torch",
+      "tolerance": 0.03,
+      "pass": true,
+      "gbs": 29.072977823816412,
+      "pct_copy_bw": 6.953718998771697,
+      "pct_spec_bw": 6.488577038953456
+    },
+    {
+      "shape": "8192\u00d78192",
+      "ms": 4.30114999471698,
+      "peak_mb": 556.06298828125,
+      "err": {
+        "y": 0.015621643306832134,
+        "dx": 0.015624588224396163,
+        "dw": 0.00011860586571368209
+      },
+      "min_bytes": 671088640,
+      "kernel": "rmsnorm",
+      "dtype": "bfloat16",
+      "backend": "triton",
+      "tolerance": 0.03,
+      "pass": true,
+      "gbs": 156.02539805035522,
+      "pct_copy_bw": 37.31839171372673,
+      "pct_spec_bw": 34.822123190069995
+    },
+    {
+      "kernel": "rmsnorm",
+      "dtype": "bfloat16",
+      "backend": "cuda",
+      "skipped": "kiln._cuda not built (needs nvcc at install time)"
+    },
+    {
+      "shape": "4\u00d74096\u00d732\u00d7128",
+      "ms": 20.673499995609745,
+      "peak_mb": 968.0,
+      "err": {
+        "y": 4.860339686274529e-07,
+        "dq": 0.030652344503323548
+      },
+      "min_bytes": 536870912,
+      "kernel": "rope",
+      "dtype": "bfloat16",
+      "backend": "naive",
+      "tolerance": 0.03,
+      "pass": true,
+      "gbs": 25.969038242871825,
+      "pct_copy_bw": 6.211314014808464,
+      "pct_spec_bw": 5.795832346020172
+    },
+    {
+      "shape": "4\u00d74096\u00d732\u00d7128",
+      "ms": 4.446849983651191,
+      "peak_mb": 640.0,
+      "err": {
+        "y": 4.7203502617776394e-07,
+        "dq": 0.015620615653460845
+      },
+      "min_bytes": 536870912,
+      "kernel": "rope",
+      "dtype": "bfloat16",
+      "backend": "compile",
+      "tolerance": 0.03,
+      "pass": true,
+      "gbs": 120.7306102013339,
+      "pct_copy_bw": 28.87653074197925,
+      "pct_spec_bw": 26.944947641706076
+    },
+    {
+      "shape": "4\u00d74096\u00d732\u00d7128",
+      "ms": 22.0660500053782,
+      "peak_mb": 1032.0,
+      "err": {
+        "y": 0.015617821365594864,
+        "dq": 0.015620615653460845
+      },
+      "min_bytes": 536870912,
+      "kernel": "rope",
+      "dtype": "bfloat16",
+      "backend": "torch",
+      "tolerance": 0.03,
+      "pass": true,
+      "gbs": 24.330177438605794,
+      "pct_copy_bw": 5.819328798157168,
+      "pct_spec_bw": 5.430067454338173
+    },
+    {
+      "shape": "4\u00d74096\u00d732\u00d7128",
+      "ms": 4.7279000136768445,
+      "peak_mb": 256.1875,
+      "err": {
+        "y": 0.015617821365594864,
+        "dq": 0.015620615653460845
+      },
+      "min_bytes": 536870912,
+      "kernel": "rope",
+      "dtype": "bfloat16",
+      "backend": "triton",
+      "tolerance": 0.03,
+      "pass": true,
+      "gbs": 113.55377872775284,
+      "pct_copy_bw": 27.159965288269824,
+      "pct_spec_bw": 25.343205150994685
+    },
+    {
+      "shape": "4096\u00d732000",
+      "ms": 40.487949998350814,
+      "peak_mb": 2500.03125,
+      "err": {
+        "logp": 1.9919382658883933e-06,
+        "entropy": 2.204575006103937e-06,
+        "grad": 2.064772179899421e-06
+      },
+      "min_bytes": 1572864000,
+      "logits_mb": 500.0,
+      "kernel": "logprob+entropy",
+      "dtype": "float32",
+      "backend": "naive",
+      "tolerance": 0.0001,
+      "pass": true,
+      "gbs": 38.84770654142941,
+      "pct_copy_bw": 9.29165346160555,
+      "pct_spec_bw": 8.670124478072196
+    },
+    {
+      "shape": "4096\u00d732000",
+      "ms": 9.71634998859372,
+      "peak_mb": 1000.0625,
+      "err": {
+        "logp": 1.9919382658883933e-06,
+        "entropy": 2.4300652912145893e-06,
+        "grad": 9.711008601698268e-07
+      },
+      "min_bytes": 1572864000,
+      "logits_mb": 500.0,
+      "kernel": "logprob+entropy",
+      "dtype": "float32",
+      "backend": "compile",
+      "tolerance": 0.0001,
+      "pass": true,
+      "gbs": 161.87807168807493,
+      "pct_copy_bw": 38.71824308481271,
+      "pct_spec_bw": 36.1283369536662
+    },
+    {
+      "shape": "4096\u00d732000",
+      "ms": 5.961600007140078,
+      "peak_mb": 0.05126953125,
+      "err": {
+        "logp": 1.8271099335720464e-06,
+        "grad": 2.497967204195817e-07
+      },
+      "min_bytes": 1572864000,
+      "note": "CE only, no entropy; gradient written in place",
+      "kernel": "logprob+entropy",
+      "dtype": "float32",
+      "backend": "liger",
+      "tolerance": 0.0001,
+      "pass": true,
+      "gbs": 263.8325278643678,
+      "pct_copy_bw": 63.10386478544725,
+      "pct_spec_bw": 58.882777430092084
+    },
+    {
+      "shape": "4096\u00d732000",
+      "ms": 46.870349993696436,
+      "peak_mb": 1512.0654296875,
+      "err": {
+        "logp": 1.8271099335720464e-06,
+        "entropy": 1.4919441449823267e-05,
+        "grad": 7.859127356013573e-06
+      },
+      "min_bytes": 1572864000,
+      "logits_mb": 500.0,
+      "kernel": "logprob+entropy",
+      "dtype": "float32",
+      "backend": "torch",
+      "tolerance": 0.0001,
+      "pass": true,
+      "gbs": 33.55776093439741,
+      "pct_copy_bw": 8.026396235703036,
+      "pct_spec_bw": 7.489501708326802
+    },
+    {
+      "shape": "4096\u00d732000",
+      "ms": 3.9191000105347484,
+      "peak_mb": 500.046875,
+      "err": {
+        "logp": 1.8271099335720464e-06,
+        "entropy": 3.993806760638208e-06,
+        "grad": 3.3465458617598642e-06
+      },
+      "min_bytes": 1572864000,
+      "logits_mb": 500.0,
+      "kernel": "logprob+entropy",
+      "dtype": "float32",
+      "backend": "triton",
+      "tolerance": 0.0001,
+      "pass": true,
+      "gbs": 401.33295801894775,
+      "pct_copy_bw": 95.99142653778758,
+      "pct_spec_bw": 89.5704537786896
+    },
+    {
+      "kernel": "logprob+entropy",
+      "dtype": "float32",
+      "backend": "cuda",
+      "skipped": "kiln._cuda not built (needs nvcc at install time)"
+    },
+    {
+      "shape": "4096\u00d7128256",
+      "ms": 168.8284499978181,
+      "peak_mb": 10020.03125,
+      "err": {
+        "logp": 2.063311654865174e-06,
+        "entropy": 3.032052119600337e-06,
+        "grad": 1.4045500469350714e-06
+      },
+      "min_bytes": 6304038912,
+      "logits_mb": 2004.0,
+      "kernel": "logprob+entropy",
+      "dtype": "float32",
+      "backend": "naive",
+      "tolerance": 0.0001,
+      "pass": true,
+      "gbs": 37.33990871847412,
+      "pct_copy_bw": 8.931016087913417,
+      "pct_spec_bw": 8.333610537439768
+    },
+    {
+      "shape": "4096\u00d7128256",
+      "ms": 70.01439998566639,
+      "peak_mb": 4008.0625,
+      "err": {
+        "logp": 2.063311654865174e-06,
+        "entropy": 2.7799039470366438e-06,
+        "grad": 1.1541029083517174e-06
+      },
+      "min_bytes": 6304038912,
+      "logits_mb": 2004.0,
+      "kernel": "logprob+entropy",
+      "dtype": "float32",
+      "backend": "compile",
+      "tolerance": 0.0001,
+      "pass": true,
+      "gbs": 90.03917641643129,
+      "pct_copy_bw": 21.53570698794368,
+      "pct_spec_bw": 20.095159712994413
+    },
+    {
+      "shape": "4096\u00d7128256",
+      "ms": 16.13155000086408,
+      "peak_mb": 0.05126953125,
+      "err": {
+        "logp": 2.113424962146837e-06,
+        "grad": 1.7685399122946421e-07
+      },
+      "min_bytes": 6304038912,
+      "note": "CE only, no entropy; gradient written in place",
+      "kernel": "logprob+entropy",
+      "dtype": "float32",
+      "backend": "liger",
+      "tolerance": 0.0001,
+      "pass": true,
+      "gbs": 390.789410296117,
+      "pct_copy_bw": 93.46960477742275,
+      "pct_spec_bw": 87.21731946688799
+    },
+    {
+      "shape": "4096\u00d7128256",
+      "ms": 170.5807999969693,
+      "peak_mb": 3028.04931640625,
+      "err": {
+        "logp": 2.0605790993499795e-06,
+        "entropy": 1.5440888720519297e-05,
+        "grad": 6.960945282408204e-06
+      },
+      "min_bytes": 6304038912,
+      "logits_mb": 2004.0,
+      "kernel": "logprob+entropy",
+      "dtype": "float32",
+      "backend": "torch",
+      "tolerance": 0.0001,
+      "pass": true,
+      "gbs": 36.95632164998642,
+      "pct_copy_bw": 8.839269150190342,
+      "pct_spec_bw": 8.248000653921409
+    },
+    {
+      "shape": "4096\u00d7128256",
+      "ms": 21.60189999267459,
+      "peak_mb": 2004.046875,
+      "err": {
+        "logp": 2.113424962146837e-06,
+        "entropy": 6.857819872863047e-06,
+        "grad": 3.840658693299304e-06
+      },
+      "min_bytes": 6304038912,
+      "logits_mb": 2004.0,
+      "kernel": "logprob+entropy",
+      "dtype": "float32",
+      "backend": "triton",
+      "tolerance": 0.0001,
+      "pass": true,
+      "gbs": 291.82798337821026,
+      "pct_copy_bw": 69.79986036132526,
+      "pct_spec_bw": 65.1308704511432
+    },
+    {
+      "kernel": "logprob+entropy",
+      "dtype": "float32",
+      "backend": "cuda",
+      "skipped": "kiln._cuda not built (needs nvcc at install time)"
+    },
+    {
+      "shape": "2048\u00d7151936",
+      "ms": 82.97804999165237,
+      "peak_mb": 5940.015625,
+      "err": {
+        "logp": 2.0179121555941038e-06,
+        "entropy": 3.11583407963667e-06,
+        "grad": 1.1969178830284477e-06
+      },
+      "min_bytes": 3733979136,
+      "logits_mb": 1187.0,
+      "kernel": "logprob+entropy",
+      "dtype": "float32",
+      "backend": "naive",
+      "tolerance": 0.0001,
+      "pass": true,
+      "gbs": 44.99960093513454,
+      "pct_copy_bw": 10.763072907634932,
+      "pct_spec_bw": 10.043119048871263
+    },
+    {
+      "shape": "2048\u00d7151936",
+      "ms": 34.58775000763126,
+      "peak_mb": 2376.03125,
+      "err": {
+        "logp": 2.0179121555941038e-06,
+        "entropy": 2.7148494226025832e-06,
+        "grad": 1.3159975429388737e-06
+      },
+      "min_bytes": 3733979136,
+      "logits_mb": 1187.0,
+      "kernel": "logprob+entropy",
+      "dtype": "float32",
+      "backend": "compile",
+      "tolerance": 0.0001,
+      "pass": true,
+      "gbs": 107.95669377673178,
+      "pct_copy_bw": 25.821246007516592,
+      "pct_spec_bw": 24.094034284551267
+    },
+    {
+      "shape": "2048\u00d7151936",
+      "ms": 9.804699991946109,
+      "peak_mb": 0.02587890625,
+      "err": {
+        "logp": 1.984261729148784e-06,
+        "grad": 7.706687110697885e-08
+      },
+      "min_bytes": 3733979136,
+      "note": "CE only, no entropy; gradient written in place",
+      "kernel": "logprob+entropy",
+      "dtype": "float32",
+      "backend": "liger",
+      "tolerance": 0.0001,
+      "pass": true,
+      "gbs": 380.83563383552877,
+      "pct_copy_bw": 91.0888454034443,
+      "pct_spec_bw": 84.99581172232735
+    },
+    {
+      "shape": "2048\u00d7151936",
+      "ms": 95.05029999127146,
+      "peak_mb": 2212.025390625,
+      "err": {
+        "logp": 1.984261729148784e-06,
+        "entropy": 1.2271708492939126e-05,
+        "grad": 4.4661658762379375e-06
+      },
+      "min_bytes": 3733979136,
+      "logits_mb": 1187.0,
+      "kernel": "logprob+entropy",
+      "dtype": "float32",
+      "backend": "torch",
+      "tolerance": 0.0001,
+      "pass": true,
+      "gbs": 39.28424356727852,
+      "pct_copy_bw": 9.39606505056317,
+      "pct_spec_bw": 8.767551860287487
+    },
+    {
+      "shape": "2048\u00d7151936",
+      "ms": 9.221999993314967,
+      "peak_mb": 1188.0234375,
+      "err": {
+        "logp": 2.18447971178648e-06,
+        "entropy": 9.276486022891106e-06,
+        "grad": 5.171878261989171e-06
+      },
+      "min_bytes": 3733979136,
+      "logits_mb": 1187.0,
+      "kernel": "logprob+entropy",
+      "dtype": "float32",
+      "backend": "triton",
+      "tolerance": 0.0001,
+      "pass": true,
+      "gbs": 404.8990608009937,
+      "pct_copy_bw": 96.84437241823231,
+      "pct_spec_bw": 90.3663451651982
+    },
+    {
+      "kernel": "logprob+entropy",
+      "dtype": "float32",
+      "backend": "cuda",
+      "skipped": "kiln._cuda not built (needs nvcc at install time)"
+    },
+    {
+      "shape": "256\u00d7128256",
+      "ms": 10.366799993789755,
+      "peak_mb": 630.001953125,
+      "err": {
+        "logp": 1.6858931246588327e-06,
+        "entropy": 2.6727777893142957e-06,
+        "grad": 8.917040661415854e-07
+      },
+      "min_bytes": 394002432,
+      "logits_mb": 125.25,
+      "kernel": "logprob+entropy",
+      "dtype": "float32",
+      "backend": "naive",
+      "tolerance": 0.0001,
+      "pass": true,
+      "gbs": 38.00617666358256,
+      "pct_copy_bw": 9.090375067108791,
+      "pct_spec_bw": 8.482309818147085
+    },
+    {
+      "shape": "256\u00d7128256",
+      "ms": 10.463800019351766,
+      "peak_mb": 630.001953125,
+      "err": {
+        "logp": 1.6858931246588327e-06,
+        "entropy": 2.6727777893142957e-06,
+        "grad": 8.917040661415854e-07
+      },
+      "min_bytes": 394002432,
+      "logits_mb": 125.25,
+      "kernel": "logprob+entropy",
+      "dtype": "float32",
+      "backend": "compile",
+      "tolerance": 0.0001,
+      "pass": true,
+      "gbs": 37.653857228858676,
+      "pct_copy_bw": 9.006106769525976,
+      "pct_spec_bw": 8.40367832025306
+    },
+    {
+      "shape": "256\u00d7128256",
+      "ms": 1.9828499935101718,
+      "peak_mb": 0.00390625,
+      "err": {
+        "logp": 1.818917358065164e-06,
+        "grad": 4.900721350953319e-08
+      },
+      "min_bytes": 394002432,
+      "note": "CE only, no entropy; gradient written in place",
+      "kernel": "logprob+entropy",
+      "dtype": "float32",
+      "backend": "liger",
+      "tolerance": 0.0001,
+      "pass": true,
+      "gbs": 198.70511298865878,
+      "pct_copy_bw": 47.526590764651566,
+      "pct_spec_bw": 44.3474845086101
+    },
+    {
+      "shape": "256\u00d7128256",
+      "ms": 11.989549995632842,
+      "peak_mb": 504.00390625,
+      "err": {
+        "logp": 1.818917358065164e-06,
+        "entropy": 1.1627347834775037e-05,
+        "grad": 1.1579713523612867e-06
+      },
+      "min_bytes": 394002432,
+      "logits_mb": 125.25,
+      "kernel": "logprob+entropy",
+      "dtype": "float32",
+      "backend": "torch",
+      "tolerance": 0.0001,
+      "pass": true,
+      "gbs": 32.86215347060684,
+      "pct_copy_bw": 7.860019785861514,
+      "pct_spec_bw": 7.334254363351405
+    },
+    {
+      "shape": "256\u00d7128256",
+      "ms": 1.1798500054283068,
+      "peak_mb": 126.0029296875,
+      "err": {
+        "logp": 1.818917358065164e-06,
+        "entropy": 3.291356128087841e-06,
+        "grad": 1.1083038260473188e-06
+      },
+      "min_bytes": 394002432,
+      "logits_mb": 125.25,
+      "kernel": "logprob+entropy",
+      "dtype": "float32",
+      "backend": "triton",
+      "tolerance": 0.0001,
+      "pass": true,
+      "gbs": 333.94281492330043,
+      "pct_copy_bw": 79.87294974418367,
+      "pct_spec_bw": 74.53015973684573
+    },
+    {
+      "kernel": "logprob+entropy",
+      "dtype": "float32",
+      "backend": "cuda",
+      "skipped": "kiln._cuda not built (needs nvcc at install time)"
+    },
+    {
+      "shape": "64\u00d7151936",
+      "ms": 2.7440500125521794,
+      "peak_mb": 190.0009765625,
+      "err": {
+        "logp": 1.53383641787741e-06,
+        "entropy": 2.263552335790564e-06,
+        "grad": 1.3362045221398944e-06
+      },
+      "min_bytes": 116686848,
+      "logits_mb": 37.09375,
+      "kernel": "logprob+entropy",
+      "dtype": "float32",
+      "backend": "naive",
+      "tolerance": 0.0001,
+      "pass": true,
+      "gbs": 42.523586474822366,
+      "pct_copy_bw": 10.170856007864806,
+      "pct_spec_bw": 9.49051619295957
+    },
+    {
+      "shape": "64\u00d7151936",
+      "ms": 2.780400012852624,
+      "peak_mb": 190.0009765625,
+      "err": {
+        "logp": 1.53383641787741e-06,
+        "entropy": 2.263552335790564e-06,
+        "grad": 1.3362045221398944e-06
+      },
+      "min_bytes": 116686848,
+      "logits_mb": 37.09375,
+      "kernel": "logprob+entropy",
+      "dtype": "float32",
+      "backend": "compile",
+      "tolerance": 0.0001,
+      "pass": true,
+      "gbs": 41.96764762645864,
+      "pct_copy_bw": 10.037885709622593,
+      "pct_spec_bw": 9.366440425130927
+    },
+    {
+      "shape": "64\u00d7151936",
+      "ms": 1.434500009054318,
+      "peak_mb": 0.00244140625,
+      "err": {
+        "logp": 1.6891149918762949e-06,
+        "grad": 4.435727513074639e-08
+      },
+      "min_bytes": 116686848,
+      "note": "CE only, no entropy; gradient written in place",
+      "kernel": "logprob+entropy",
+      "dtype": "float32",
+      "backend": "liger",
+      "tolerance": 0.0001,
+      "pass": true,
+      "gbs": 81.3432187267289,
+      "pct_copy_bw": 19.455794618256448,
+      "pct_spec_bw": 18.15437498364718
+    },
+    {
+      "shape": "64\u00d7151936",
+      "ms": 3.7364999880082905,
+      "peak_mb": 152.001953125,
+      "err": {
+        "logp": 1.6891149918762949e-06,
+        "entropy": 1.0574609323299455e-05,
+        "grad": 1.8665896077685318e-06
+      },
+      "min_bytes": 116686848,
+      "logits_mb": 37.09375,
+      "kernel": "logprob+entropy",
+      "dtype": "float32",
+      "backend": "torch",
+      "tolerance": 0.0001,
+      "pass": true,
+      "gbs": 31.228917001067337,
+      "pct_copy_bw": 7.469379806133672,
+      "pct_spec_bw": 6.969744724206215
+    },
+    {
+      "shape": "64\u00d7151936",
+      "ms": 1.2195500021334738,
+      "peak_mb": 37.09521484375,
+      "err": {
+        "logp": 1.6891149918762949e-06,
+        "entropy": 2.010158923759775e-06,
+        "grad": 2.4249448160595932e-06
+      },
+      "min_bytes": 116686848,
+      "logits_mb": 37.09375,
+      "kernel": "logprob+entropy",
+      "dtype": "float32",
+      "backend": "triton",
+      "tolerance": 0.0001,
+      "pass": true,
+      "gbs": 95.68024910489008,
+      "pct_copy_bw": 22.884947322556183,
+      "pct_spec_bw": 21.35414786836034
+    },
+    {
+      "kernel": "logprob+entropy",
+      "dtype": "float32",
+      "backend": "cuda",
+      "skipped": "kiln._cuda not built (needs nvcc at install time)"
+    },
+    {
+      "shape": "16384\u00d74096",
+      "ms": 19.36689998547081,
+      "peak_mb": 1536.015625,
+      "err": {
+        "y": 8.75555966395325e-07,
+        "dx": 1.0814994917396348e-06,
+        "dw": 4.481360712203786e-09
+      },
+      "min_bytes": 1342177280,
+      "kernel": "rmsnorm",
+      "dtype": "float32",
+      "backend": "naive",
+      "tolerance": 0.0001,
+      "pass": true,
+      "gbs": 69.30263909076369,
+      "pct_copy_bw": 16.575910490864228,
+      "pct_spec_bw": 15.467129492832203
+    },
+    {
+      "shape": "16384\u00d74096",
+      "ms": 5.2170999988447875,
+      "peak_mb": 520.09375,
+      "err": {
+        "y": 9.589128371345623e-07,
+        "dx": 9.058623620106232e-07,
+        "dw": 4.902259667649567e-09
+      },
+      "min_bytes": 1342177280,
+      "kernel": "rmsnorm",
+      "dtype": "float32",
+      "backend": "compile",
+      "tolerance": 0.0001,
+      "pass": true,
+      "gbs": 257.2650093533181,
+      "pct_copy_bw": 61.5330357316838,
+      "pct_spec_bw": 57.417022870241325
+    },
+    {
+      "shape": "16384\u00d74096",
+      "ms": 5.838149998453446,
+      "peak_mb": 512.984375,
+      "err": {
+        "y": 9.589128371345623e-07,
+        "dx": 9.058623620106232e-07,
+        "dw": 9.740368023432311e-09
+      },
+      "min_bytes": 1342177280,
+      "kernel": "rmsnorm",
+      "dtype": "float32",
+      "backend": "liger",
+      "tolerance": 0.0001,
+      "pass": true,
+      "gbs": 229.89770395682697,
+      "pct_copy_bw": 54.987282055055914,
+      "pct_spec_bw": 51.30912190152009
+    },
+    {
+      "shape": "16384\u00d74096",
+      "ms": 19.472949992632493,
+      "peak_mb": 1324.14111328125,
+      "err": {
+        "y": 8.75555966395325e-07,
+        "dx": 1.1102767230042332e-06,
+        "dw": 4.481360712203786e-09
+      },
+      "min_bytes": 1342177280,
+      "kernel": "rmsnorm",
+      "dtype": "float32",
+      "backend": "torch",
+      "tolerance": 0.0001,
+      "pass": true,
+      "gbs": 68.9252157740767,
+      "pct_copy_bw": 16.4856378086598,
+      "pct_spec_bw": 15.382895250249229
+    },
+    {
+      "shape": "16384\u00d74096",
+      "ms": 6.4471500081708655,
+      "peak_mb": 812.07861328125,
+      "err": {
+        "y": 1.235826935008788e-06,
+        "dx": 1.2422680502055528e-06,
+        "dw": 5.41173618244517e-09
+      },
+      "min_bytes": 1342177280,
+      "kernel": "rmsnorm",
+      "dtype": "float32",
+      "backend": "triton",
+      "tolerance": 0.0001,
+      "pass": true,
+      "gbs": 208.1814876804444,
+      "pct_copy_bw": 49.793164458377824,
+      "pct_spec_bw": 46.46244457944499
+    },
+    {
+      "kernel": "rmsnorm",
+      "dtype": "float32",
+      "backend": "cuda",
+      "skipped": "kiln._cuda not built (needs nvcc at install time)"
+    },
+    {
+      "shape": "8192\u00d78192",
+      "ms": 19.75194999249652,
+      "peak_mb": 1536.03125,
+      "err": {
+        "y": 1.0110524533146759e-06,
+        "dx": 1.122764638594731e-06,
+        "dw": 7.20687898941863e-09
+      },
+      "min_bytes": 1342177280,
+      "kernel": "rmsnorm",
+      "dtype": "float32",
+      "backend": "naive",
+      "tolerance": 0.0001,
+      "pass": true,
+      "gbs": 67.9516341682656,
+      "pct_copy_bw": 16.252775081277353,
+      "pct_spec_bw": 15.165608968420939
+    },
+    {
+      "shape": "8192\u00d78192",
+      "ms": 5.460600004880689,
+      "peak_mb": 512.0625,
+      "err": {
+        "y": 1.0110524533146759e-06,
+        "dx": 9.617796337124673e-07,
+        "dw": 9.850358199253728e-09
+      },
+      "min_bytes": 1342177280,
+      "kernel": "rmsnorm",
+      "dtype": "float32",
+      "backend": "compile",
+      "tolerance": 0.0001,
+      "pass": true,
+      "gbs": 245.79300421205744,
+      "pct_copy_bw": 58.78914411561958,
+      "pct_spec_bw": 54.85667320116265
+    },
+    {
+      "shape": "8192\u00d78192",
+      "ms": 5.78125000174623,
+      "peak_mb": 513.875,
+      "err": {
+        "y": 1.0110524533146759e-06,
+        "dx": 9.12081187465219e-07,
+        "dw": 1.0229533090391763e-08
+      },
+      "min_bytes": 1342177280,
+      "kernel": "rmsnorm",
+      "dtype": "float32",
+      "backend": "liger",
+      "tolerance": 0.0001,
+      "pass": true,
+      "gbs": 232.1603943082542,
+      "pct_copy_bw": 55.52847577041615,
+      "pct_spec_bw": 51.8141145702967
+    },
+    {
+      "shape": "8192\u00d78192",
+      "ms": 23.358799997367896,
+      "peak_mb": 1324.09423828125,
+      "err": {
+        "y": 1.0110524533146759e-06,
+        "dx": 1.126776806081864e-06,
+        "dw": 7.20687898941863e-09
+      },
+      "min_bytes": 1342177280,
+      "kernel": "rmsnorm",
+      "dtype": "float32",
+      "backend": "torch",
+      "tolerance": 0.0001,
+      "pass": true,
+      "gbs": 57.459170854292104,
+      "pct_copy_bw": 13.74317176742201,
+      "pct_spec_bw": 12.823875797719099
+    },
+    {
+      "shape": "8192\u00d78192",
+      "ms": 6.468150008004159,
+      "peak_mb": 812.06298828125,
+      "err": {
+        "y": 1.1536012420876318e-06,
+        "dx": 1.2441456442857657e-06,
+        "dw": 6.764594889449582e-09
+      },
+      "min_bytes": 1342177280,
+      "kernel": "rmsnorm",
+      "dtype": "float32",
+      "backend": "triton",
+      "tolerance": 0.0001,
+      "pass": true,
+      "gbs": 207.50558944042615,
+      "pct_copy_bw": 49.63150209061717,
+      "pct_spec_bw": 46.311595986382784
+    },
+    {
+      "kernel": "rmsnorm",
+      "dtype": "float32",
+      "backend": "cuda",
+      "skipped": "kiln._cuda not built (needs nvcc at install time)"
+    },
+    {
+      "shape": "4\u00d74096\u00d732\u00d7128",
+      "ms": 18.351250007981434,
+      "peak_mb": 896.0,
+      "err": {
+        "y": 4.7122422852652335e-07,
+        "dq": 4.6163656097775174e-07
+      },
+      "min_bytes": 1073741824,
+      "kernel": "rope",
+      "dtype": "float32",
+      "backend": "naive",
+      "tolerance": 0.0001,
+      "pass": true,
+      "gbs": 58.51055505935573,
+      "pct_copy_bw": 13.99464343867855,
+      "pct_spec_bw": 13.058526250570393
+    },
+    {
+      "shape": "4\u00d74096\u00d732\u00d7128",
+      "ms": 3.3075000101234764,
+      "peak_mb": 512.0,
+      "err": {
+        "y": 4.7213238207888253e-07,
+        "dq": 4.6163656097775174e-07
+      },
+      "min_bytes": 1073741824,
+      "kernel": "rope",
+      "dtype": "float32",
+      "backend": "compile",
+      "tolerance": 0.0001,
+      "pass": true,
+      "gbs": 324.6384945467966,
+      "pct_copy_bw": 77.64752826294304,
+      "pct_spec_bw": 72.45359916145831
+    },
+    {
+      "shape": "4\u00d74096\u00d732\u00d7128",
+      "ms": 16.67645000270568,
+      "peak_mb": 776.0,
+      "err": {
+        "y": 4.7122422852652335e-07,
+        "dq": 4.6163656097775174e-07
+      },
+      "min_bytes": 1073741824,
+      "kernel": "rope",
+      "dtype": "float32",
+      "backend": "torch",
+      "tolerance": 0.0001,
+      "pass": true,
+      "gbs": 64.38671442817808,
+      "pct_copy_bw": 15.40011216260531,
+      "pct_spec_bw": 14.369981616058885
+    },
+    {
+      "shape": "4\u00d74096\u00d732\u00d7128",
+      "ms": 4.409850007505156,
+      "peak_mb": 512.1875,
+      "err": {
+        "y": 4.7213238207888253e-07,
+        "dq": 4.580758528049955e-07
+      },
+      "min_bytes": 1073741824,
+      "kernel": "rope",
+      "dtype": "float32",
+      "backend": "triton",
+      "tolerance": 0.0001,
+      "pass": true,
+      "gbs": 243.48715311690668,
+      "pct_copy_bw": 58.23762714801287,
+      "pct_spec_bw": 54.342047813907534
+    }
+  ]
+}
