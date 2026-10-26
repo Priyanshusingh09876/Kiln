@@ -131,8 +131,13 @@ tolerance). *Naive* is the straightforward PyTorch formula.
 In fp32 the fused log-prob kernel is 9.4× faster at 128k and uses 5× less memory. The memory column is the
 point: the naive path materialises several `[tokens, vocab]` fp32 tensors, which caps how many tokens fit
 in one micro-batch. One finding the run exposed: Kiln's own PyTorch *fallback* path (`KILN_KERNEL_BACKEND=torch`)
-is slower than naive and peaked at 16 GB at 128k — it saves full-size intermediates for backward. It is only
-used where Triton is unavailable, but it should be chunked over tokens; that is open work in `docs/STATUS.md`.
+was slower than naive and peaked at 16 GB at 128k — it saved full-size intermediates for backward. It is now
+chunked over tokens; the table above is from before that change and the re-measurement is pending.
+
+These numbers are *v1* of the kernels. Since then: `scripts/bench_kernels.py` also compares against
+`torch.compile` and Liger Kernel and reports achieved bandwidth as a percentage of the GPU's measured copy
+bandwidth, and `scripts/tune_fused_logprob.py` sweeps block sizes, warps, split-row forward and tiled
+backward against v1. Results will replace the table above once run on the same GPU.
 
 **Sync vs async GRPO, reproduced on a second machine** — [`docs/benchmarks/sync_vs_async_rtx3080-laptop.md`](docs/benchmarks/sync_vs_async_rtx3080-laptop.md):
 async with queue depth 4 reached reward 0.8 **2.0× sooner** (16.0 vs 31.4 s) and the trainer was busy 54% of
@@ -264,7 +269,7 @@ in the run that printed it. The vLLM/SGLang engines track upstream APIs that
 move quickly — pin the versions in `deploy/docker/Dockerfile` if you are
 deploying.
 
-Roadmap, in order: chunk the PyTorch fallback log-prob path; build the CUDA C++ extension with nvcc and benchmark it; GPU validation tiers 1–3 from `docs/VALIDATION.md`
+Roadmap, in order: re-run the kernel benchmark and tuning sweep on the RTX 3080 Ti; build the CUDA C++ extension with nvcc and benchmark it; GPU validation tiers 1–3 from `docs/VALIDATION.md`
 (kernels, then FSDP2 + vLLM on one node via Ray, then multi-node with failure
 injection); tensor parallelism in the trainer, then pipeline (1F1B) and
 context parallelism; MoE expert parallelism; TensorRT-LLM rollout engine;

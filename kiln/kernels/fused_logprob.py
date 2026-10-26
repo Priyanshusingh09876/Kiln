@@ -29,11 +29,20 @@ Gradients (see docs/design/fused-kernels.md for the derivation)::
 
 from __future__ import annotations
 
+import os
+
 import torch
 
 from kiln import native
 from kiln.kernels.dispatch import next_pow2, num_warps_for, use_triton
 from kiln.native import use_cuda_ext
+
+# Largest Triton block for the one-program-per-row forward.
+MAX_BLOCK_V = 8192
+# Split-row slices are multiples of this, so every split-kernel BLOCK_V (<= it) divides them.
+SPLIT_GRAIN = 2048
+# Fallback path: rows per chunk are chosen so one fp32 [rows, V] temporary is about this big.
+_REF_CHUNK_BYTES = 256 * 2**20
 
 try:  # pragma: no cover
     import triton
@@ -50,6 +59,7 @@ try:  # pragma: no cover
         stride_n,
         BLOCK_V: tl.constexpr,
     ):
+        """One program per row, streaming the whole vocabulary with an online log-sum-exp."""
         row = tl.program_id(0)
         base = logits_ptr + row * stride_n
         target = tl.load(targets_ptr + row)
@@ -80,6 +90,57 @@ try:  # pragma: no cover
         tl.store(lse_ptr + row, lse)
 
     @triton.jit
+    def _fwd_partial_kernel(
+        logits_ptr,
+        targets_ptr,
+        m_ptr,
+        l_ptr,
+        s_ptr,
+        t_ptr,
+        V,
+        stride_n,
+        CHUNK,
+        NSPLIT,
+        BLOCK_V: tl.constexpr,
+    ):
+        """Split-row forward: program (row, k) reduces vocabulary slice ``[k*CHUNK, (k+1)*CHUNK)``.
+
+        With few rows (short RL batches, decode-time scoring) one program per row
+        leaves most SMs idle; splitting each row gives every SM work. The partial
+        ``(max, sum exp, sum exp*x, target logit)`` tuples are merged by
+        :func:`_combine_partials`.
+        """
+        row = tl.program_id(0)
+        k = tl.program_id(1)
+        base = logits_ptr + row * stride_n
+        target = tl.load(targets_ptr + row)
+        lo = k * CHUNK
+
+        m = -float("inf")
+        l = 0.0  # noqa: E741
+        s = 0.0
+        tgt_logit = 0.0
+        for start in range(0, CHUNK, BLOCK_V):
+            offs = lo + start + tl.arange(0, BLOCK_V)
+            mask = offs < V
+            x = tl.load(base + offs, mask=mask, other=-float("inf")).to(tl.float32)
+            m_new = tl.maximum(m, tl.max(x, axis=0))
+            # a slice that is entirely padding keeps m = -inf; avoid exp(-inf - -inf) = nan
+            m_safe = tl.where(m_new == -float("inf"), 0.0, m_new)
+            scale = tl.exp(m - m_safe)
+            e = tl.where(mask, tl.exp(x - m_safe), 0.0)
+            l = l * scale + tl.sum(e, axis=0)  # noqa: E741
+            s = s * scale + tl.sum(e * tl.where(mask, x, 0.0), axis=0)
+            m = m_new
+            tgt_logit += tl.sum(tl.where(offs == target, x, 0.0), axis=0)
+
+        out = row * NSPLIT + k
+        tl.store(m_ptr + out, m)
+        tl.store(l_ptr + out, l)
+        tl.store(s_ptr + out, s)
+        tl.store(t_ptr + out, tgt_logit)
+
+    @triton.jit
     def _bwd_kernel(
         logits_ptr,
         targets_ptr,
@@ -93,6 +154,7 @@ try:  # pragma: no cover
         stride_gn,
         BLOCK_V: tl.constexpr,
     ):
+        """v1 backward: one program per row, looping over the vocabulary (kept for the tuning sweep)."""
         row = tl.program_id(0)
         base = logits_ptr + row * stride_n
         gbase = grad_ptr + row * stride_gn
@@ -110,28 +172,187 @@ try:  # pragma: no cover
             p = tl.exp(logp)
             onehot = tl.where(offs == target, 1.0, 0.0)
             g = g_lp * (onehot - p) + g_h * (-p * (logp + ent))
-            tl.store(gbase + offs, g, mask=mask)
+            tl.store(gbase + offs, g.to(grad_ptr.dtype.element_ty), mask=mask)
+
+    @triton.jit
+    def _bwd_tile_kernel(
+        logits_ptr,
+        targets_ptr,
+        lse_ptr,
+        ent_ptr,
+        g_logp_ptr,
+        g_ent_ptr,
+        grad_ptr,
+        V,
+        stride_n,
+        stride_gn,
+        BLOCK_V: tl.constexpr,
+    ):
+        """Backward on a 2-D grid ``(row, vocab tile)``: no loop, so every tile is an independent program.
+
+        The gradient is stored directly in the logits dtype; v1 wrote fp32 and
+        converted afterwards, which for bf16 costs an extra ``[N, V]`` fp32 buffer
+        and two more full passes over memory.
+        """
+        row = tl.program_id(0)
+        tile = tl.program_id(1)
+        offs = tile * BLOCK_V + tl.arange(0, BLOCK_V)
+        mask = offs < V
+        target = tl.load(targets_ptr + row)
+        lse = tl.load(lse_ptr + row)
+        ent = tl.load(ent_ptr + row)
+        g_lp = tl.load(g_logp_ptr + row)
+        g_h = tl.load(g_ent_ptr + row)
+        x = tl.load(logits_ptr + row * stride_n + offs, mask=mask, other=-float("inf")).to(tl.float32)
+        logp = x - lse
+        p = tl.exp(logp)
+        onehot = tl.where(offs == target, 1.0, 0.0)
+        g = g_lp * (onehot - p) + g_h * (-p * (logp + ent))
+        tl.store(grad_ptr + row * stride_gn + offs, g.to(grad_ptr.dtype.element_ty), mask=mask)
+
+    _ROW_CONFIGS = [
+        triton.Config({"BLOCK_V": b}, num_warps=w) for b in (1024, 2048, 4096, 8192) for w in (4, 8, 16)
+    ]
+    _TILE_CONFIGS = [triton.Config({"BLOCK_V": b}, num_warps=w) for b in (1024, 2048, 4096) for w in (4, 8)]
+    _fwd_tuned = triton.autotune(configs=_ROW_CONFIGS, key=["V"])(_fwd_kernel)
+    _SPLIT_CONFIGS = [triton.Config({"BLOCK_V": b}, num_warps=w) for b in (1024, 2048) for w in (4, 8)]
+    _fwd_partial_tuned = triton.autotune(configs=_SPLIT_CONFIGS, key=["V", "CHUNK"])(_fwd_partial_kernel)
+    _bwd_tile_tuned = triton.autotune(configs=_TILE_CONFIGS, key=["V"])(_bwd_tile_kernel)
 
     _HAS_TRITON = True
 except Exception:  # pragma: no cover
     _HAS_TRITON = False
 
 
+def _cdiv(a: int, b: int) -> int:
+    return -(-a // b)
+
+
+def _autotune_enabled() -> bool:
+    return os.environ.get("KILN_TRITON_AUTOTUNE", "1") != "0"
+
+
+def _combine_partials(m, l, s, t):  # noqa: E741
+    """Merge split-row partials ``[N, S]`` into ``(logp, ent, lse)`` ``[N]`` (fp32)."""
+    M = m.max(dim=1).values
+    w = torch.exp(m - M[:, None])
+    w = torch.where(torch.isfinite(m), w, torch.zeros_like(w))  # empty slices contribute nothing
+    L = (l * w).sum(1)
+    S = (s * w).sum(1)
+    lse = M + torch.log(L)
+    return t.sum(1) - lse, lse - S / L, lse
+
+
+def split_factor(n_rows: int, V: int, device: torch.device | None = None) -> int:
+    """How many programs to split each row across so the GPU has ~4 programs per SM."""
+    env = os.environ.get("KILN_LOGPROB_SPLIT")
+    if env:
+        return max(1, int(env))
+    if device is None or not torch.cuda.is_available():
+        return 1
+    sms = torch.cuda.get_device_properties(device).multi_processor_count
+    want = _cdiv(4 * sms, max(n_rows, 1))
+    return max(1, min(want, _cdiv(V, SPLIT_GRAIN)))
+
+
+def _triton_forward(logits_c: torch.Tensor, targets: torch.Tensor):
+    N, V = logits_c.shape
+    dev = logits_c.device
+    S = split_factor(N, V, dev)
+    tuned = _autotune_enabled()
+    if S == 1:
+        logp = torch.empty(N, device=dev, dtype=torch.float32)
+        ent = torch.empty_like(logp)
+        lse = torch.empty_like(logp)
+        if tuned:
+            _fwd_tuned[(N,)](logits_c, targets, logp, ent, lse, V, logits_c.stride(0))
+        else:
+            B = min(next_pow2(V), MAX_BLOCK_V)
+            _fwd_kernel[(N,)](
+                logits_c,
+                targets,
+                logp,
+                ent,
+                lse,
+                V,
+                logits_c.stride(0),
+                BLOCK_V=B,
+                num_warps=num_warps_for(B),
+            )
+        return logp, ent, lse
+    chunk = _cdiv(_cdiv(V, S), SPLIT_GRAIN) * SPLIT_GRAIN  # a multiple of every split BLOCK_V
+    S = _cdiv(V, chunk)
+    parts = [torch.empty(N, S, device=dev, dtype=torch.float32) for _ in range(4)]
+    if tuned:
+        _fwd_partial_tuned[(N, S)](logits_c, targets, *parts, V, logits_c.stride(0), chunk, S)
+    else:
+        _fwd_partial_kernel[(N, S)](
+            logits_c, targets, *parts, V, logits_c.stride(0), chunk, S, BLOCK_V=SPLIT_GRAIN, num_warps=8
+        )
+    return _combine_partials(*parts)
+
+
+def _triton_backward(logits, targets, lse, ent, g_logp, g_ent):
+    N, V = logits.shape
+    grad = torch.empty(N, V, device=logits.device, dtype=logits.dtype)
+    if _autotune_enabled():
+        grid = lambda meta: (N, triton.cdiv(V, meta["BLOCK_V"]))  # noqa: E731
+        _bwd_tile_tuned[grid](
+            logits, targets, lse, ent, g_logp, g_ent, grad, V, logits.stride(0), grad.stride(0)
+        )
+    else:
+        B = 4096
+        _bwd_tile_kernel[(N, triton.cdiv(V, B))](
+            logits,
+            targets,
+            lse,
+            ent,
+            g_logp,
+            g_ent,
+            grad,
+            V,
+            logits.stride(0),
+            grad.stride(0),
+            BLOCK_V=B,
+            num_warps=8,
+        )
+    return grad
+
+
+def _ref_rows(V: int) -> int:
+    return max(1, _REF_CHUNK_BYTES // (4 * max(V, 1)))
+
+
 def _logprob_entropy_ref(logits: torch.Tensor, targets: torch.Tensor):
-    x = logits.float()
-    lse = torch.logsumexp(x, dim=-1)
-    logp = x.gather(-1, targets.unsqueeze(-1)).squeeze(-1) - lse
-    p = torch.exp(x - lse.unsqueeze(-1))
-    ent = lse - (p * x).sum(-1)
+    """Reference forward, chunked over rows so at most one fp32 ``[rows, V]`` temporary is live."""
+    N, V = logits.shape
+    logp = torch.empty(N, device=logits.device, dtype=torch.float32)
+    ent = torch.empty_like(logp)
+    lse = torch.empty_like(logp)
+    step = _ref_rows(V)
+    for i in range(0, N, step):
+        x = logits[i : i + step].float()
+        c_lse = torch.logsumexp(x, dim=-1)
+        logp[i : i + step] = x.gather(-1, targets[i : i + step].unsqueeze(-1)).squeeze(-1) - c_lse
+        p = torch.exp(x - c_lse.unsqueeze(-1))
+        ent[i : i + step] = c_lse - (p * x).sum(-1)
+        lse[i : i + step] = c_lse
     return logp, ent, lse
 
 
 def _bwd_ref(logits, targets, lse, ent, g_logp, g_ent):
-    x = logits.float()
-    logp_all = x - lse.unsqueeze(-1)
-    p = torch.exp(logp_all)
-    onehot = torch.zeros_like(p).scatter_(-1, targets.unsqueeze(-1), 1.0)
-    grad = g_logp.unsqueeze(-1) * (onehot - p) + g_ent.unsqueeze(-1) * (-p * (logp_all + ent.unsqueeze(-1)))
+    """Reference backward, chunked like the forward; writes the gradient in the logits dtype."""
+    N, V = logits.shape
+    grad = torch.empty_like(logits)
+    step = _ref_rows(V)
+    for i in range(0, N, step):
+        sl = slice(i, i + step)
+        logp_all = logits[sl].float() - lse[sl].unsqueeze(-1)
+        p = torch.exp(logp_all)
+        g = (logp_all + ent[sl].unsqueeze(-1)).mul_(p).mul_(-g_ent[sl].unsqueeze(-1))
+        g.sub_(p.mul_(g_logp[sl].unsqueeze(-1)))
+        g.scatter_add_(-1, targets[sl].unsqueeze(-1), g_logp[sl].unsqueeze(-1))
+        grad[sl] = g
     return grad
 
 
@@ -139,7 +360,6 @@ class _FusedLogprobEntropy(torch.autograd.Function):
     @staticmethod
     def forward(ctx, logits: torch.Tensor, targets: torch.Tensor):
         assert logits.dim() == 2, "flatten to [N, V] first"
-        N, V = logits.shape
         ctx.backend = "torch"
         if use_cuda_ext(logits, targets):
             logits_c = logits if logits.stride(1) == 1 else logits.contiguous()
@@ -149,26 +369,13 @@ class _FusedLogprobEntropy(torch.autograd.Function):
             return logp, ent
         if use_triton(logits, targets) and _HAS_TRITON:
             logits_c = logits if logits.stride(1) == 1 else logits.contiguous()
-            logp = torch.empty(N, device=logits.device, dtype=torch.float32)
-            ent = torch.empty_like(logp)
-            lse = torch.empty_like(logp)
-            BLOCK_V = min(next_pow2(V), 8192)
-            _fwd_kernel[(N,)](
-                logits_c,
-                targets,
-                logp,
-                ent,
-                lse,
-                V,
-                logits_c.stride(0),
-                BLOCK_V=BLOCK_V,
-                num_warps=num_warps_for(BLOCK_V),
-            )
+            logp, ent, lse = _triton_forward(logits_c, targets)
             ctx.save_for_backward(logits_c, targets, lse, ent)
             ctx.backend = "triton"
-        else:
+            return logp, ent
+        with torch.no_grad():
             logp, ent, lse = _logprob_entropy_ref(logits, targets)
-            ctx.save_for_backward(logits, targets, lse, ent)
+        ctx.save_for_backward(logits, targets, lse, ent)
         return logp, ent
 
     @staticmethod
@@ -182,28 +389,10 @@ class _FusedLogprobEntropy(torch.autograd.Function):
         g_ent = g_ent.contiguous().float()
         if ctx.backend == "cuda":
             grad = native.cuda().fused_logprob_entropy_bwd(logits, targets, lse, ent, g_logp, g_ent)
-            return grad, None
+            return grad.to(logits.dtype), None
         if ctx.backend == "triton":
-            N, V = logits.shape
-            grad = torch.empty(N, V, device=logits.device, dtype=torch.float32)
-            BLOCK_V = min(next_pow2(V), 8192)
-            _bwd_kernel[(N,)](
-                logits,
-                targets,
-                lse,
-                ent,
-                g_logp,
-                g_ent,
-                grad,
-                V,
-                logits.stride(0),
-                grad.stride(0),
-                BLOCK_V=BLOCK_V,
-                num_warps=num_warps_for(BLOCK_V),
-            )
-        else:
-            grad = _bwd_ref(logits, targets, lse, ent, g_logp, g_ent)
-        return grad.to(logits.dtype), None
+            return _triton_backward(logits, targets, lse, ent, g_logp, g_ent), None
+        return _bwd_ref(logits, targets, lse, ent, g_logp, g_ent), None
 
 
 def fused_logprob_entropy(logits: torch.Tensor, targets: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
@@ -211,6 +400,7 @@ def fused_logprob_entropy(logits: torch.Tensor, targets: torch.Tensor) -> tuple[
 
     Works for any leading shape; internally flattens to ``[N, V]``. Output is
     always fp32 regardless of logits dtype, which is what the loss math wants.
+    The input gradient has the logits dtype.
     """
     lead = logits.shape[:-1]
     V = logits.shape[-1]

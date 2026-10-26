@@ -92,12 +92,23 @@ The async-vs-sync scheduling benchmark reproduced on this machine
 depth 4 reached the target reward 2.0× sooner in wall time, with the trainer busy 54% of the time instead of 5%.
 That benchmark simulates generation latency, so it measures scheduling, not GPU throughput.
 
-## What the benchmark exposed that is not fixed yet
+## What the benchmark exposed, and what changed after it
 
 Kiln's own PyTorch fallback for log-prob + entropy (`KILN_KERNEL_BACKEND=torch`, used only where Triton is
 unavailable) is correct but slower than the naive formula, and at 4096 × 128k it peaked at 16 GB — the whole card —
 taking 1.4 s. It saves full-size `[N, V]` fp32 intermediates for backward. The fix is to process tokens in chunks
-and recompute in backward, as the Triton kernel does. Tracked in [`STATUS.md`](STATUS.md).
+and recompute in backward, as the Triton kernel does. **Now done**: the fallback is chunked over rows and writes the
+gradient in the input dtype; the GPU re-measurement is pending.
+
+Reading the numbers more carefully also showed that "7.4× faster than naive" is the wrong yardstick. At 4096 × 128k
+in bf16 the kernel moves at least 3 GB (read the logits twice, write the gradient), so 20.8 ms is about 150 GB/s —
+roughly a third of what this GPU can copy. Two causes were visible in the code: the backward wrote an fp32 gradient
+and converted it to bf16 in a separate pass (an extra 2 GB buffer and two extra passes over memory), and the block
+size and warp count were fixed by hand. Version 2 stores the gradient directly in the logits dtype, autotunes block
+size and warps, runs the backward on a 2-D grid of independent tiles, and splits each row across several programs
+when the batch is too short to fill the GPU. `scripts/tune_fused_logprob.py` measures every configuration against
+v1, and `scripts/bench_kernels.py` now compares against `torch.compile` and Liger Kernel and reports % of measured
+copy bandwidth. Results go here once they are measured.
 
 ## Lessons
 

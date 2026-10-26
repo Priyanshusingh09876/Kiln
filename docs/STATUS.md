@@ -49,7 +49,8 @@ Hardware used for everything marked ✅: a CPU-only Linux container (2–4 cores
 | PyTorch reference paths (log-prob+entropy, RMSNorm, RoPE, FP8 dequant GEMM) | ✅ | fwd + bwd vs. naive and vs. float64 (`test_kernels.py`, `docs/benchmarks/kernels_cpu.md`) |
 | Triton kernels | ✅ on 1 GPU | RTX 3080 Ti Laptop (sm_86, Windows, triton-windows): all parity tests pass; benchmarked fwd+bwd vs naive in `docs/benchmarks/kernels_rtx3080-laptop.md` (log-prob 6–9× faster, 3–5× less memory; RMSNorm 2.6–7×; RoPE 3×). Fused log-prob was broken on first run (bug 16), fixed. Fused log-prob also runs on CPU in CI via `TRITON_INTERPRET=1` (`test_triton_interpret.py`). Not yet run on Linux / datacenter GPUs |
 | CUDA C++ kernels (`csrc/*.cu`) | 🟡 type-checked | compiled by g++ against real libtorch + CUDA headers in CI (catches compile errors); never compiled by nvcc or executed |
-| PyTorch fallback for log-prob+entropy (`KILN_KERNEL_BACKEND=torch`) | ⚠️ slow | correct, but on the GPU benchmark it is slower than the naive formula and peaked at 16 GB at 4096×128k (saves full `[N, V]` fp32 intermediates for backward). Needs chunking over tokens. Only used where Triton is unavailable |
+| PyTorch fallback for log-prob+entropy (`KILN_KERNEL_BACKEND=torch`) | 🟡 fixed, not re-measured | the v1 GPU benchmark showed it slower than naive and peaking at 16 GB at 4096×128k (full `[N, V]` fp32 intermediates kept for backward). Now chunked over rows with ≤256 MB of fp32 temporaries and the gradient written in the input dtype (`test_logprob_fallback.py`); GPU numbers pending |
+| Fused log-prob v2 (autotuned, split-row forward, tiled backward, gradient stored in input dtype) | 🟡 CPU-verified | every kernel variant and the training wrappers run under `TRITON_INTERPRET=1` in CI; GPU speed and bandwidth to be measured with `scripts/tune_fused_logprob.py` and `scripts/bench_kernels.py` |
 | Backend pinning (`KILN_KERNEL_BACKEND`) | ✅ | `test_backend_forcing_actually_disables_triton` |
 | Kernel benchmark harness | ✅ | `scripts/bench_kernels.py`; run on CPU and on an RTX 3080 Ti; CUDA C++ rows need an nvcc build |
 
@@ -73,6 +74,13 @@ Hardware used for everything marked ✅: a CPU-only Linux container (2–4 cores
 | GPU CI job | 🟡 defined, not running | needs a self-hosted GPU runner registered to the repo; none is attached |
 | Docker images, KubeRay job, Slurm scripts | 🟡 | never deployed |
 | Multi-node runs | ⬜ not validated | plan in `docs/VALIDATION.md` |
+
+## Known flaky
+
+* `test_e2e.py::test_async_loop_learns_first_byte_task` asserts the final reward exceeds 0.85 after 60 async steps.
+  Async scheduling depends on thread timing, so under heavy CPU load it has finished at 0.8496 (seen once in a
+  full-suite run; 18/18 passes when run alone). The margin is kept deliberately tight; if it flakes in CI, the fix is
+  more steps, not a lower bar.
 
 ## Bugs found while closing these gaps
 
