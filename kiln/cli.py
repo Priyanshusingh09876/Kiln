@@ -152,7 +152,7 @@ def bench(
                 t.add_row(*[_fmt(v) for v in r.values()])
         console.print(t)
     if json_out:
-        json_out.write_text(json.dumps(results, indent=2, default=float))
+        json_out.write_text(json.dumps(results, indent=2, default=float), encoding="utf-8")
 
 
 @app.command()
@@ -168,9 +168,9 @@ def topo():
 @app.command("inspect-ckpt")
 def inspect_ckpt(path: Path):
     """Print metadata for every checkpoint under a directory."""
-    latest = (path / "LATEST").read_text().strip() if (path / "LATEST").exists() else None
+    latest = (path / "LATEST").read_text(encoding="utf-8").strip() if (path / "LATEST").exists() else None
     for d in sorted(path.glob("step_*"), key=lambda p: int(p.name.split("_")[1])):
-        meta = json.loads((d / "meta.json").read_text()) if (d / "meta.json").exists() else {}
+        meta = json.loads((d / "meta.json").read_text(encoding="utf-8")) if (d / "meta.json").exists() else {}
         tag = " [bold](latest)[/bold]" if latest == d.name.split("_")[1] else ""
         console.print(f"{d.name}{tag}: {meta}")
 

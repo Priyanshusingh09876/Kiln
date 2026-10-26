@@ -50,7 +50,7 @@ class MetricLogger:
         if not is_main:
             return
         run_dir.mkdir(parents=True, exist_ok=True)
-        self._jsonl = (run_dir / "metrics.jsonl").open("a")
+        self._jsonl = (run_dir / "metrics.jsonl").open("a", encoding="utf-8")
         if cfg.backend == "wandb":
             import wandb
 
@@ -135,5 +135,5 @@ def build_logger(cfg: LoggingConfig, is_main: bool = True) -> MetricLogger:
 
 
 def read_metrics(path: str | Path) -> list[dict[str, Any]]:
-    with Path(path).open() as f:
+    with Path(path).open(encoding="utf-8") as f:
         return [json.loads(line) for line in f if line.strip()]

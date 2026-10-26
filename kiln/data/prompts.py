@@ -95,14 +95,14 @@ def _read_rows(path: str | Path) -> list[dict[str, Any]]:
     if not p.exists():
         raise FileNotFoundError(p)
     if p.suffix == ".jsonl":
-        with p.open() as f:
+        with p.open(encoding="utf-8") as f:
             return [json.loads(line) for line in f if line.strip()]
     if p.suffix == ".parquet":
         import pyarrow.parquet as pq
 
         return pq.read_table(p).to_pylist()
     if p.suffix == ".json":
-        return json.loads(p.read_text())
+        return json.loads(p.read_text(encoding="utf-8"))
     raise ValueError(f"unsupported dataset format {p.suffix}")
 
 

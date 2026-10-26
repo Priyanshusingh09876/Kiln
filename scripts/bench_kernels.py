@@ -228,6 +228,8 @@ def plan(device: str, dtypes: list[str]) -> list[tuple[str, Callable, tuple, set
 
 
 def main() -> int:
+    if hasattr(sys.stdout, "reconfigure"):  # Windows consoles/pipes default to cp1252
+        sys.stdout.reconfigure(errors="replace")
     ap = argparse.ArgumentParser()
     ap.add_argument("--tag", default=None)
     ap.add_argument("--dtypes", nargs="+", default=None, help="default: fp32 on CPU, bf16 fp32 on GPU")
@@ -282,7 +284,9 @@ def main() -> int:
         "command": " ".join(["python", "scripts/bench_kernels.py", *sys.argv[1:]]),
     }
     OUT.mkdir(parents=True, exist_ok=True)
-    (OUT / f"kernels_{tag}.json").write_text(json.dumps({"meta": meta, "rows": rows}, indent=2))
+    (OUT / f"kernels_{tag}.json").write_text(
+        json.dumps({"meta": meta, "rows": rows}, indent=2), encoding="utf-8"
+    )
 
     lines = [
         f"# Kernel comparison — `{tag}`",
@@ -323,8 +327,8 @@ def main() -> int:
             "Run the same command on a CUDA machine to fill in Triton and CUDA C++ rows, memory, and speed.",
         ]
     md = OUT / f"kernels_{tag}.md"
-    md.write_text("\n".join(lines) + "\n")
-    print(md.read_text())
+    md.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    print(md.read_text(encoding="utf-8"))
     return (
         0
         if all(r.get("pass", True) for r in rows if "err" in r) and not any("error" in r for r in rows)

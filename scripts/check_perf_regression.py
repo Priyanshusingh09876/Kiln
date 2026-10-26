@@ -34,13 +34,13 @@ def main() -> int:
     ap.add_argument("--tolerance", type=float, default=0.2)
     ap.add_argument("--write-baseline", action="store_true")
     a = ap.parse_args()
-    cur = json.load(open(a.current))
+    cur = json.load(open(a.current, encoding="utf-8"))
     if a.write_baseline:
-        json.dump(cur, open(a.baseline, "w"), indent=2)
+        json.dump(cur, open(a.baseline, "w", encoding="utf-8"), indent=2)
         print(f"wrote baseline {a.baseline}")
         return 0
     try:
-        base = json.load(open(a.baseline))
+        base = json.load(open(a.baseline, encoding="utf-8"))
     except FileNotFoundError:
         print(f"no baseline at {a.baseline}; nothing to compare (run with --write-baseline)")
         return 0

@@ -109,6 +109,9 @@ Found by the first run on a real GPU (RTX 3080 Laptop, 22 failing tests, three r
 19. Resume crashed on GPU: checkpoints are loaded onto the trainer device, which moved the rollout engine's
     CPU sampler RNG state to CUDA, and `Generator.set_state` rejects that. Only visible with a CUDA trainer;
     the engine now moves the state back to CPU. (Found on the second GPU run, after 16–18 were fixed.)
+20. On Windows the sync-vs-async benchmark crashed after a full 10-minute run while writing its report:
+    text files defaulted to cp1252, which cannot encode "≥". Every text read/write now names UTF-8, and a
+    test parses the source to keep it that way (Linux CI defaults to UTF-8 and would never catch it).
 
-Fixes 1, 3–7 and 9–19 have tests that target them directly; for 5, 6, 10 and 16 I confirmed the test fails when
+Fixes 1, 3–7 and 9–20 have tests that target them directly; for 5, 6, 10 and 16 I confirmed the test fails when
 the fix is reverted. Fixes 2 and 8 are exercised by the two-rank test but no test isolates them.

@@ -238,7 +238,7 @@ class KilnConfig(_Strict):
     # ------------------------------------------------------------------ io
     @classmethod
     def from_yaml(cls, path: str | Path, overrides: list[str] | None = None) -> KilnConfig:
-        raw = yaml.safe_load(Path(path).read_text()) or {}
+        raw = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
         raw = _expand_env(raw)
         for ov in overrides or []:
             _apply_override(raw, ov)

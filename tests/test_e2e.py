@@ -114,7 +114,7 @@ def test_checkpoint_resume_continues_from_same_state(tmp_path):
     assert "exp_avg" in next(iter(ctl2.trainer.optimizer.state.values()))
     res = ctl2.run()
     assert res.steps == 10
-    meta = json.loads((tmp_path / "ck" / "step_10" / "meta.json").read_text())
+    meta = json.loads((tmp_path / "ck" / "step_10" / "meta.json").read_text(encoding="utf-8"))
     assert meta["step"] == 10
 
 
@@ -153,9 +153,10 @@ def test_cli_train_smoke(tmp_path):
 
     y = tmp_path / "c.yaml"
     y.write_text(
-        _cfg(tmp_path, train={"total_steps": 2}, reward={"functions": [{"name": "exact_match"}]}).to_yaml()
+        _cfg(tmp_path, train={"total_steps": 2}, reward={"functions": [{"name": "exact_match"}]}).to_yaml(),
+        encoding="utf-8",
     )
-    (tmp_path / "train.jsonl").write_text("\n".join(json.dumps(r) for r in ROWS))
+    (tmp_path / "train.jsonl").write_text("\n".join(json.dumps(r) for r in ROWS), encoding="utf-8")
     r = CliRunner().invoke(app, ["train", str(y), "--set", f"data.train_path={tmp_path / 'train.jsonl'}"])
     assert r.exit_code == 0, r.output
     assert "done" in r.output

@@ -28,6 +28,7 @@ from __future__ import annotations
 import argparse
 import json
 import platform
+import sys
 import time
 from pathlib import Path
 
@@ -168,7 +169,8 @@ def write_report(routing: dict, canaries: dict, args) -> Path:
         "concurrency": args.concurrency,
     }
     (OUT / "gateway_demo.json").write_text(
-        json.dumps({"meta": meta, "routing": routing, "canary": canaries}, indent=2, default=float)
+        json.dumps({"meta": meta, "routing": routing, "canary": canaries}, indent=2, default=float),
+        encoding="utf-8",
     )
     ll, pa = routing["least_loaded"], routing["prefix_aware"]
     lines = [
@@ -272,7 +274,7 @@ def write_report(routing: dict, canaries: dict, args) -> Path:
             if e["verdict"] != "insufficient_data":
                 lines.append(f"| {e['request']} | {e['share']:.0%} | {e['verdict']} | {e['detail']} |")
     md = OUT / "gateway_demo.md"
-    md.write_text("\n".join(lines) + "\n")
+    md.write_text("\n".join(lines) + "\n", encoding="utf-8")
     try:
         import matplotlib
 
@@ -302,6 +304,8 @@ def write_report(routing: dict, canaries: dict, args) -> Path:
 
 
 def main() -> None:
+    if hasattr(sys.stdout, "reconfigure"):  # Windows consoles/pipes default to cp1252
+        sys.stdout.reconfigure(errors="replace")
     ap = argparse.ArgumentParser()
     ap.add_argument("--quick", action="store_true")
     ap.add_argument("--requests", type=int, default=3000)
@@ -321,7 +325,7 @@ def main() -> None:
         ),
     }
     md = write_report(routing, canaries, args)
-    print(md.read_text())
+    print(md.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

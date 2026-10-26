@@ -209,8 +209,8 @@ def write_report(meta: dict, runs: list[dict], a) -> None:
             "It says nothing about kernel speed, MFU or vLLM throughput; run with `--config` on GPUs for that.",
         ]
     md = OUT / f"sync_vs_async_{a.tag}.md"
-    md.write_text("\n".join(lines) + "\n")
-    print(md.read_text())
+    md.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    print(md.read_text(encoding="utf-8"))
     try:
         import matplotlib
 
@@ -243,6 +243,8 @@ def mean_std(xs):
 
 
 def main() -> int:
+    if hasattr(sys.stdout, "reconfigure"):  # Windows consoles/pipes default to cp1252
+        sys.stdout.reconfigure(errors="replace")
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", type=Path, help="Kiln YAML; omit for the CPU scheduling simulation")
     ap.add_argument("--steps", type=int, default=60)
@@ -255,7 +257,7 @@ def main() -> int:
     ap.add_argument("--from-json", type=Path, help="regenerate the report from a previous run's JSON")
     a = ap.parse_args()
     if a.from_json:
-        data = json.loads(a.from_json.read_text())
+        data = json.loads(a.from_json.read_text(encoding="utf-8"))
         a.tag, a.steps, a.seeds = data["meta"]["tag"], data["meta"]["steps"], data["meta"]["seeds"]
         a.threshold = data["meta"].get("threshold", a.threshold)
         a.modes = list(dict.fromkeys(r["mode"] for r in data["runs"]))
@@ -302,7 +304,9 @@ def main() -> int:
         "threshold": a.threshold,
     }
     OUT.mkdir(parents=True, exist_ok=True)
-    (OUT / f"sync_vs_async_{a.tag}.json").write_text(json.dumps({"meta": meta, "runs": runs}, indent=2))
+    (OUT / f"sync_vs_async_{a.tag}.json").write_text(
+        json.dumps({"meta": meta, "runs": runs}, indent=2), encoding="utf-8"
+    )
     write_report(meta, runs, a)
     return 0
 

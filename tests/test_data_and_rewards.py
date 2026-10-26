@@ -134,7 +134,8 @@ def test_prompt_dataset_jsonl_and_sharded_sampler(tmp_path):
     p.write_text(
         "\n".join(
             json.dumps({"prompt": f"question {i}", "answer": str(i), "difficulty": i % 2}) for i in range(10)
-        )
+        ),
+        encoding="utf-8",
     )
     ds = PromptDataset(DataConfig(train_path=str(p), max_prompt_len=4), ByteTokenizer())
     assert len(ds) == 10 and ds[3].answer == "3" and ds[3].meta == {"difficulty": 1}
@@ -152,7 +153,7 @@ def test_chat_messages_prompt_and_preference_dataset(tmp_path):
     ds = PromptDataset(DataConfig(), ByteTokenizer(), rows=rows)
     assert ds[0].text == "hi"
     p = tmp_path / "pref.jsonl"
-    p.write_text(json.dumps({"prompt": "p", "chosen": "good", "rejected": "bad"}) + "\n")
+    p.write_text(json.dumps({"prompt": "p", "chosen": "good", "rejected": "bad"}) + "\n", encoding="utf-8")
     pd = PreferenceDataset(p, ByteTokenizer())
     assert len(pd) == 1 and pd[0].chosen_ids[-1] == ByteTokenizer.EOS
 

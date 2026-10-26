@@ -167,7 +167,7 @@ class AsyncCheckpointer:
         p = self.root / "LATEST"
         if not p.exists():
             return None
-        return int(p.read_text().strip())
+        return int(p.read_text(encoding="utf-8").strip())
 
     def load(
         self, step: int | None = None, map_location: str | torch.device = "cpu"
@@ -177,7 +177,7 @@ class AsyncCheckpointer:
         if step is None:
             raise FileNotFoundError(f"no checkpoint under {self.root}")
         d = self.root / f"step_{step}"
-        meta = json.loads((d / "meta.json").read_text())
+        meta = json.loads((d / "meta.json").read_text(encoding="utf-8"))
         shard = d / f"rank{_rank()}.pt"
         payload = torch.load(shard, map_location=map_location, weights_only=False)
         model_state = payload["model"]
@@ -266,9 +266,9 @@ class AsyncCheckpointer:
                 "safetensors": wrote_st,
                 "torch": torch.__version__,
             }
-            (tmp / "meta.json").write_text(json.dumps(meta, indent=2))
+            (tmp / "meta.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
             os.replace(tmp, final)  # atomic on POSIX
-            (self.root / "LATEST.tmp").write_text(str(step))
+            (self.root / "LATEST.tmp").write_text(str(step), encoding="utf-8")
             os.replace(self.root / "LATEST.tmp", self.root / "LATEST")
             self._prune()
         _barrier()

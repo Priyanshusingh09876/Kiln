@@ -41,7 +41,7 @@ def test_save_is_atomic_no_tmp_left_and_latest_updated_last(tmp_path):
     ck.save(5, _state(5), {})
     assert (tmp_path / "step_5").is_dir()
     assert not any(p.name.endswith(".tmp") for p in tmp_path.iterdir())
-    assert (tmp_path / "LATEST").read_text().strip() == "5"
+    assert (tmp_path / "LATEST").read_text(encoding="utf-8").strip() == "5"
 
 
 def test_training_can_mutate_source_tensors_while_write_in_flight(tmp_path):
@@ -126,7 +126,8 @@ def test_yaml_env_expansion_and_overrides(tmp_path, monkeypatch):
         model: {name_or_path: "${KILN_MODEL:-tiny}", dtype: fp32}
         data: {train_path: "${DATA_DIR}/train.jsonl"}
         train: {total_steps: 5}
-    """)
+    """),
+        encoding="utf-8",
     )
     with pytest.raises(KeyError):
         KilnConfig.from_yaml(y)

@@ -66,9 +66,9 @@ def test_dpo_from_cli(tmp_path):
     from kiln.cli import app
 
     data = tmp_path / "pref.jsonl"
-    data.write_text("\n".join(json.dumps(r) for r in _rows()))
+    data.write_text("\n".join(json.dumps(r) for r in _rows()), encoding="utf-8")
     y = tmp_path / "dpo.yaml"
-    y.write_text(_cfg(tmp_path, total=3).to_yaml())
+    y.write_text(_cfg(tmp_path, total=3).to_yaml(), encoding="utf-8")
     r = CliRunner().invoke(app, ["train", str(y), "--set", f"data.train_path={data}"])
     assert r.exit_code == 0, r.output
     assert "3 DPO steps" in r.output
