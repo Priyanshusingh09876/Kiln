@@ -106,6 +106,9 @@ Found by the first run on a real GPU (RTX 3080 Laptop, 22 failing tests, three r
 18. The PPO critic read hidden states through `logits @ pinverse(lm_head.weight)`, an SVD that does not
     converge on CUDA (and was only an approximation anyway). `TinyLM.forward_hidden` now returns the real final
     hidden states, through `__call__` so FSDP hooks still run.
+19. Resume crashed on GPU: checkpoints are loaded onto the trainer device, which moved the rollout engine's
+    CPU sampler RNG state to CUDA, and `Generator.set_state` rejects that. Only visible with a CUDA trainer;
+    the engine now moves the state back to CPU. (Found on the second GPU run, after 16–18 were fixed.)
 
-Fixes 1, 3–7 and 9–18 have tests that target them directly; for 5, 6, 10 and 16 I confirmed the test fails when
+Fixes 1, 3–7 and 9–19 have tests that target them directly; for 5, 6, 10 and 16 I confirmed the test fails when
 the fix is reverted. Fixes 2 and 8 are exercised by the two-rank test but no test isolates them.

@@ -113,7 +113,9 @@ class MockEngine(RolloutEngine):
 
     def load_state_dict(self, state: dict) -> None:
         if "rng" in state:
-            self.gen.set_state(state["rng"])
+            # checkpoints are loaded onto the trainer device (cuda); a CPU generator
+            # only accepts a CPU ByteTensor
+            self.gen.set_state(torch.as_tensor(state["rng"]).to("cpu", torch.uint8))
 
     def stats(self) -> dict[str, float]:
         return {

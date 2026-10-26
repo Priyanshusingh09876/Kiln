@@ -8,6 +8,8 @@ from pathlib import Path
 import pytest
 import torch
 
+from kiln.utils.gpu_monitor import GPUMonitor
+
 SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
 
 
@@ -37,8 +39,12 @@ def test_sync_vs_async_harness_runs(tmp_path):
     base = sva.cpu_sim_config(steps=3, engines=2, ms_per_token=0.0)
     base["logging"]["log_dir"] = str(tmp_path)
     rows = [{"prompt": f"p{i}"} for i in range(16)]
+    has_gpu = GPUMonitor().available()
     for mode in ("sync", "async-d2"):
         r = sva.run_mode(base, mode, seed=0, rows=rows, reward_fn=sva.first_byte_reward)
         assert r["steps"] == 3 and 0 < r["trainer_busy_frac"] <= 1
-        assert r["gpu_util_mean"] is None  # no GPU here: reported as n/a, never invented
+        if has_gpu:  # measured by NVML / nvidia-smi, in percent
+            assert 0.0 <= r["gpu_util_mean"] <= 100.0
+        else:  # no GPU: reported as n/a, never invented
+            assert r["gpu_util_mean"] is None
         assert len(r["reward_curve"]) == 3
