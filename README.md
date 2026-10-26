@@ -18,6 +18,23 @@ kiln train configs/grpo_math_qwen3_8b.yaml --ray   # 8 trainer GPUs + 4 vLLM eng
 
 > Windows without a C++ compiler: `set KILN_SKIP_NATIVE=1` (PowerShell: `$env:KILN_SKIP_NATIVE="1"`) before `pip install -e ".[dev]"`. Everything runs; the native-extension tests skip.
 
+## Highlights
+
+- **Fused Triton log-prob + entropy kernel: 7.4× faster and 3.3× less memory than PyTorch** at a 128k vocabulary
+  (forward + backward on an RTX 3080 Ti, checked against float64). RMSNorm 7.0×, RoPE 3.4×.
+  [Results](docs/benchmarks/kernels_rtx3080-laptop.md)
+- **First GPU bring-up: 22 failing tests → 5 root causes → all fixed.** The two that CPU CI could never see now have
+  CPU-side guards (Triton interpreter run, source-level encoding check).
+  The worst was one line: a comment had swallowed `+ tl.sum(e)`, so the kernel returned `+inf` and every training
+  run went NaN. [Write-up](docs/gpu-bringup.md)
+- **Async rollout/training reaches the target reward 2.0× sooner** than synchronous training, with bounded
+  staleness and importance-weight correction (scheduling simulation, reproduced on two machines).
+  [Results](docs/benchmarks/sync_vs_async_rtx3080-laptop.md)
+- **Bit-exact checkpoint resume**, tested across processes and across two FSDP2 ranks; a prefix-cache-aware
+  router (C++ core) that raised cache hit rate from 53% to 89% under load; canary rollouts with automatic rollback.
+- **Every claim has evidence or is marked as not done.** 20 bugs found and documented in
+  [`docs/STATUS.md`](docs/STATUS.md), including what is still slow or untested.
+
 ## Status
 
 **Tested on CPU on every commit; the full suite and the Triton kernels also run on one GPU (RTX 3080 Ti
