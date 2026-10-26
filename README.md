@@ -10,7 +10,7 @@
 
 ```bash
 pip install torch && pip install --no-build-isolation -e ".[dev]"   # builds the C++ ext; CUDA ext too if nvcc is present
-pytest -q                                   # 136 tests, ~2 min on a laptop CPU, no GPU needed
+pytest -q                                   # ~170 tests, a few min on a laptop CPU, no GPU needed
 kiln train configs/tiny_cpu_smoke.yaml      # the full async GRPO loop end-to-end on CPU
 python examples/01_async_grpo_cpu.py        # same, with a learning curve
 kiln train configs/grpo_math_qwen3_8b.yaml --ray   # 8 trainer GPUs + 4 vLLM engines (not yet run, see Status)
@@ -20,11 +20,12 @@ kiln train configs/grpo_math_qwen3_8b.yaml --ray   # 8 trainer GPUs + 4 vLLM eng
 
 ## Status
 
-**Tested on CPU, not yet on GPUs.** The algorithms, the async loop, checkpointing and exact resume,
-data-parallel FSDP2 across real processes, the reward server, the router, the canary controller and the
-gateway are all exercised by the test suite on every commit. The GPU-specific parts — Triton and CUDA C++
-kernels, vLLM/SGLang engines, NCCL weight sync, the Ray runtime — are written but have not run on GPU
-hardware yet. Tensor, pipeline and context parallelism are not implemented. Every component and its
+**Tested on CPU on every commit; the full suite and the Triton kernels also run on one GPU (RTX 3080 Ti
+Laptop).** The algorithms, the async loop, checkpointing and exact resume, data-parallel FSDP2 across real
+processes, the reward server, the router, the canary controller and the gateway are all exercised by the
+test suite. The first GPU run failed 22 tests; the five bugs behind them are fixed and listed in
+[`docs/STATUS.md`](docs/STATUS.md) (#16–20). Not yet run on GPUs: the CUDA C++ kernels (not built with nvcc
+yet), vLLM/SGLang engines, NCCL weight sync, the Ray runtime, and anything multi-GPU. Tensor, pipeline and context parallelism are not implemented. Every component and its
 evidence is listed in [`docs/STATUS.md`](docs/STATUS.md); the plan and results log for GPU and
 multi-node validation are in [`docs/VALIDATION.md`](docs/VALIDATION.md).
 
@@ -94,9 +95,32 @@ stays flat and the build fails.
 
 ## Benchmarks
 
-All numbers below were produced by the scripts named, on a CPU-only machine, and each report says what it
-does and does not measure. GPU results will be added to [`docs/benchmarks/`](docs/benchmarks) as the
-[validation plan](docs/VALIDATION.md) is carried out; until then there are none.
+All numbers below were produced by the scripts named, and each report says what it does and does not
+measure. Raw JSON for every table is next to it in [`docs/benchmarks/`](docs/benchmarks).
+
+**Kernels on a GPU** — [`docs/benchmarks/kernels_rtx3080-laptop.md`](docs/benchmarks/kernels_rtx3080-laptop.md),
+`scripts/bench_kernels.py`, NVIDIA RTX 3080 Ti Laptop (16 GB, sm_86), Windows, torch 2.14 + CUDA 12.6.
+Forward + backward, median of 20 iterations, every row checked against a float64 reference (all within
+tolerance). *Naive* is the straightforward PyTorch formula.
+
+| kernel (bf16) | shape | naive | Triton | speedup | peak memory naive → Triton |
+|---|---|---|---|---|---|
+| log-prob + entropy | 4096 × 32k vocab | 38.5 ms | 6.3 ms | 6.1× | 2.5 GB → 0.75 GB |
+| log-prob + entropy | 4096 × 128k vocab (Llama-3) | 153.6 ms | 20.8 ms | **7.4×** | **10.0 GB → 3.0 GB** |
+| log-prob + entropy | 2048 × 152k vocab (Qwen) | 91.2 ms | 15.2 ms | 6.0× | 5.9 GB → 1.8 GB |
+| RMSNorm | 16384 × 4096 | 32.5 ms | 4.6 ms | 7.0× | 1.5 GB → 0.56 GB |
+| RoPE | 4 × 4096 × 32 heads × 128 | 19.0 ms | 5.5 ms | 3.4× | 0.52 GB → 0.26 GB |
+
+In fp32 the fused log-prob kernel is 9.4× faster at 128k and uses 5× less memory. The memory column is the
+point: the naive path materialises several `[tokens, vocab]` fp32 tensors, which caps how many tokens fit
+in one micro-batch. One finding the run exposed: Kiln's own PyTorch *fallback* path (`KILN_KERNEL_BACKEND=torch`)
+is slower than naive and peaked at 16 GB at 128k — it saves full-size intermediates for backward. It is only
+used where Triton is unavailable, but it should be chunked over tokens; that is open work in `docs/STATUS.md`.
+
+**Sync vs async GRPO, reproduced on a second machine** — [`docs/benchmarks/sync_vs_async_rtx3080-laptop.md`](docs/benchmarks/sync_vs_async_rtx3080-laptop.md):
+async with queue depth 4 reached reward 0.8 **2.0× sooner** (16.0 vs 31.4 s) and the trainer was busy 54% of
+wall time instead of 5%, consistent with the run below. Same scheduling simulation, so this confirms the
+scheduling result, not GPU throughput.
 
 **Sync vs async GRPO** — [`docs/benchmarks/sync_vs_async_cpu-sim.md`](docs/benchmarks/sync_vs_async_cpu-sim.md),
 `scripts/bench_sync_vs_async.py`, 3 seeds. A *scheduling simulation*: 4 mock engines with a heavy-tailed
@@ -119,9 +143,9 @@ simulate an engine with a prefix cache. Prefix-aware routing raised the replica 
 traffic vs 25%). A canary that turned 3× slower at 25% of traffic was rolled back automatically. Judging a
 canary against the warm fleet rolled back a *healthy* build; comparing it with a matched control fixed that.
 
-**Kernels** — [`docs/benchmarks/kernels_cpu.md`](docs/benchmarks/kernels_cpu.md), `scripts/bench_kernels.py`.
-On CPU this covers the reference paths only (all within tolerance of a float64 reference). Triton and
-CUDA C++ timings, errors and peak memory need a GPU run.
+**Kernels on CPU** — [`docs/benchmarks/kernels_cpu.md`](docs/benchmarks/kernels_cpu.md): reference paths
+only (all within tolerance of a float64 reference). GPU results are at the top of this section; the CUDA C++
+kernels still need an nvcc build to be timed.
 
 ## What's inside
 
@@ -186,8 +210,10 @@ scheduler simulator.
   is bit-for-bit deterministic and every importance weight is exactly 1.
 * **Kernels are tested forward and backward** at fp32 and bf16, at
   non-power-of-two sizes, with extreme logits; on a CUDA machine the same
-  tests pin Triton and the CUDA C++ extension against the reference path
-  (not yet run — see Status).
+  tests pin Triton (run on an RTX 3080 Ti) and the CUDA C++ extension (not
+  yet built with nvcc) against the reference path. The Triton log-prob
+  kernel also runs on CPU in CI through Triton's interpreter, added after
+  the first GPU run found it returning `+inf`.
 * **Native code is checked on every PR without a GPU.** The C++ extension
   builds and runs in CPU CI; the `.cu` sources are type-checked by g++
   against real libtorch + CUDA headers (`scripts/check_cuda_host_compile.sh`),
@@ -205,14 +231,15 @@ scheduler simulator.
   weights, losses and data order — in one process and across two FSDP2 ranks.
   Writing these tests found that resumed runs restarted the prompt stream and
   left the rollout engines on the initial weights (which hung async runs);
-  `docs/STATUS.md` lists all fifteen bugs found this way.
+  `docs/STATUS.md` lists all twenty bugs found this way and on the first GPU run.
 
 ## Status and honesty
 
-This is infrastructure code that has been tested on CPU only. The GPU paths
-(Triton and CUDA C++ kernels, vLLM/SGLang engines, NCCL weight sync, the Ray
-runtime) are written and type-checked but have not been executed on GPU
-hardware; the CUDA C++ sources are compiled by g++ against real headers in CI,
+This is infrastructure code tested on CPU on every commit and on a single
+laptop GPU (RTX 3080 Ti) by hand. The Triton kernels and the single-GPU training
+loop have run there; the CUDA C++ kernels, vLLM/SGLang engines, NCCL weight
+sync, the Ray runtime and every multi-GPU path have not been executed on GPU
+hardware. The CUDA C++ sources are compiled by g++ against real headers in CI,
 not yet by nvcc. `docs/STATUS.md` marks each component, and
 `docs/VALIDATION.md` is the plan for running the rest. The throughput numbers you get from `kiln bench` are the throughput numbers
 on *your* hardware; nothing in this repo claims a number it did not measure
@@ -220,7 +247,7 @@ in the run that printed it. The vLLM/SGLang engines track upstream APIs that
 move quickly — pin the versions in `deploy/docker/Dockerfile` if you are
 deploying.
 
-Roadmap, in order: GPU validation tiers 1–3 from `docs/VALIDATION.md`
+Roadmap, in order: chunk the PyTorch fallback log-prob path; build the CUDA C++ extension with nvcc and benchmark it; GPU validation tiers 1–3 from `docs/VALIDATION.md`
 (kernels, then FSDP2 + vLLM on one node via Ray, then multi-node with failure
 injection); tensor parallelism in the trainer, then pipeline (1F1B) and
 context parallelism; MoE expert parallelism; TensorRT-LLM rollout engine;

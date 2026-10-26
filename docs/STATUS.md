@@ -47,10 +47,11 @@ Hardware used for everything marked ✅: a CPU-only Linux container (2–4 cores
 | Component | Status | Evidence / notes |
 |---|---|---|
 | PyTorch reference paths (log-prob+entropy, RMSNorm, RoPE, FP8 dequant GEMM) | ✅ | fwd + bwd vs. naive and vs. float64 (`test_kernels.py`, `docs/benchmarks/kernels_cpu.md`) |
-| Triton kernels | 🟡 executed on 1 GPU | run on an RTX 3080 Laptop (sm_86, Windows, triton-windows): RMSNorm and RoPE passed first time; fused log-prob was broken (bug 16), fixed. Fused log-prob also runs on CPU in CI via `TRITON_INTERPRET=1` (`test_triton_interpret.py`). Not yet run on Linux / datacenter GPUs |
+| Triton kernels | ✅ on 1 GPU | RTX 3080 Ti Laptop (sm_86, Windows, triton-windows): all parity tests pass; benchmarked fwd+bwd vs naive in `docs/benchmarks/kernels_rtx3080-laptop.md` (log-prob 6–9× faster, 3–5× less memory; RMSNorm 2.6–7×; RoPE 3×). Fused log-prob was broken on first run (bug 16), fixed. Fused log-prob also runs on CPU in CI via `TRITON_INTERPRET=1` (`test_triton_interpret.py`). Not yet run on Linux / datacenter GPUs |
 | CUDA C++ kernels (`csrc/*.cu`) | 🟡 type-checked | compiled by g++ against real libtorch + CUDA headers in CI (catches compile errors); never compiled by nvcc or executed |
+| PyTorch fallback for log-prob+entropy (`KILN_KERNEL_BACKEND=torch`) | ⚠️ slow | correct, but on the GPU benchmark it is slower than the naive formula and peaked at 16 GB at 4096×128k (saves full `[N, V]` fp32 intermediates for backward). Needs chunking over tokens. Only used where Triton is unavailable |
 | Backend pinning (`KILN_KERNEL_BACKEND`) | ✅ | `test_backend_forcing_actually_disables_triton` |
-| Kernel benchmark harness | ✅ on CPU | `scripts/bench_kernels.py`; Triton/CUDA rows need a GPU run |
+| Kernel benchmark harness | ✅ | `scripts/bench_kernels.py`; run on CPU and on an RTX 3080 Ti; CUDA C++ rows need an nvcc build |
 
 ## Rewards and serving
 
@@ -93,7 +94,7 @@ Recorded because they are what happens to infrastructure that has only run on on
 14. Configs accepted `tp/pp/cp > 1` although nothing implements them; the shipped 70B config relied on it.
 15. DPO had a loss function and a dataset but no training loop.
 
-Found by the first run on a real GPU (RTX 3080 Laptop, 22 failing tests, three root causes):
+Found by the first run on a real GPU (RTX 3080 Ti Laptop, 22 failing tests, three root causes):
 
 16. The Triton fused log-prob forward returned `+inf` for every token. A formatting edit had moved
     `+ tl.sum(e, axis=0)` into a trailing comment, so the online-softmax denominator stayed 0 and

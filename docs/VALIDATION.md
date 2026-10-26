@@ -109,7 +109,7 @@ and the loss-curve comparison.
 | Tier | Date | Hardware | Result | Link |
 |---|---|---|---|---|
 | 0 | 2026-10-26 | CPU container | all passing | `docs/benchmarks/*cpu*` |
-| 1 (partial) | 2026-10-26 | RTX 3080 Laptop 16 GB, Windows, CUDA torch + triton-windows | run 1: 22 failures from 3 bugs (STATUS.md #16–18); run 2: 5 failures, 1 bug (#19) plus a test that assumed no GPU; fixed, rerun pending | |
+| 1 (partial) | 2026-10-26 | RTX 3080 Ti Laptop 16 GB, Windows, torch 2.14 + CUDA 12.6, triton-windows | full suite passes after fixing 5 bugs found on this machine (STATUS.md #16–20); Triton kernels benchmarked; CUDA C++ ext not built | `docs/benchmarks/*rtx3080-laptop*` |
 | 2a | — | — | not run yet | |
 | 2b | — | — | needs Ray path first | |
 | 2c | — | — | not run yet | |
