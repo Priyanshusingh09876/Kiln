@@ -1,0 +1,630 @@
+{
+  "meta": {
+    "date": "2026-10-26",
+    "device": "NVIDIA GeForce RTX 3080 Ti Laptop GPU",
+    "torch": "2.14.1+cu126",
+    "cuda": "12.6",
+    "backends": {
+      "naive": null,
+      "torch": null,
+      "triton": null,
+      "cuda": "kiln._cuda not built (needs nvcc at install time)"
+    },
+    "iters": 20,
+    "command": "python scripts/bench_kernels.py --tag rtx3080-laptop"
+  },
+  "rows": [
+    {
+      "shape": "4096\u00d732000",
+      "ms": 38.460800002212636,
+      "peak_mb": 2500.0322265625,
+      "err": {
+        "logp": 1.164334737069339e-06,
+        "entropy": 2.8433430685481653e-06,
+        "grad": 0.00780690902683201
+      },
+      "logits_mb": 250.0,
+      "kernel": "logprob+entropy",
+      "dtype": "bfloat16",
+      "backend": "naive",
+      "tolerance": 0.03,
+      "pass": true
+    },
+    {
+      "shape": "4096\u00d732000",
+      "ms": 50.565950004966,
+      "peak_mb": 4000.0791015625,
+      "err": {
+        "logp": 1.4025651644544723e-06,
+        "entropy": 1.6383436020284137e-05,
+        "grad": 0.00780690902683201
+      },
+      "logits_mb": 250.0,
+      "kernel": "logprob+entropy",
+      "dtype": "bfloat16",
+      "backend": "torch",
+      "tolerance": 0.03,
+      "pass": true
+    },
+    {
+      "shape": "4096\u00d732000",
+      "ms": 6.282699992880225,
+      "peak_mb": 750.0791015625,
+      "err": {
+        "logp": 1.4025651644544723e-06,
+        "entropy": 6.683561507792035e-06,
+        "grad": 0.00780690902683201
+      },
+      "logits_mb": 250.0,
+      "kernel": "logprob+entropy",
+      "dtype": "bfloat16",
+      "backend": "triton",
+      "tolerance": 0.03,
+      "pass": true
+    },
+    {
+      "kernel": "logprob+entropy",
+      "dtype": "bfloat16",
+      "backend": "cuda",
+      "skipped": "kiln._cuda not built (needs nvcc at install time)"
+    },
+    {
+      "shape": "4096\u00d7128256",
+      "ms": 153.62090000417084,
+      "peak_mb": 10020.0322265625,
+      "err": {
+        "logp": 1.3235928228993998e-06,
+        "entropy": 3.8688181094315155e-06,
+        "grad": 0.015625229522868267
+      },
+      "logits_mb": 1002.0,
+      "kernel": "logprob+entropy",
+      "dtype": "bfloat16",
+      "backend": "naive",
+      "tolerance": 0.03,
+      "pass": true
+    },
+    {
+      "shape": "4096\u00d7128256",
+      "ms": 1415.998850003234,
+      "peak_mb": 16032.0791015625,
+      "err": {
+        "logp": 1.1857997161968115e-06,
+        "entropy": 1.595742817261936e-05,
+        "grad": 0.015624770477131733
+      },
+      "logits_mb": 1002.0,
+      "kernel": "logprob+entropy",
+      "dtype": "bfloat16",
+      "backend": "torch",
+      "tolerance": 0.03,
+      "pass": true
+    },
+    {
+      "shape": "4096\u00d7128256",
+      "ms": 20.773050011484884,
+      "peak_mb": 3006.0791015625,
+      "err": {
+        "logp": 1.272497264892536e-06,
+        "entropy": 3.8708547123178505e-06,
+        "grad": 0.015625229522868267
+      },
+      "logits_mb": 1002.0,
+      "kernel": "logprob+entropy",
+      "dtype": "bfloat16",
+      "backend": "triton",
+      "tolerance": 0.03,
+      "pass": true
+    },
+    {
+      "kernel": "logprob+entropy",
+      "dtype": "bfloat16",
+      "backend": "cuda",
+      "skipped": "kiln._cuda not built (needs nvcc at install time)"
+    },
+    {
+      "shape": "2048\u00d7151936",
+      "ms": 91.2277500028722,
+      "peak_mb": 5940.0166015625,
+      "err": {
+        "logp": 1.2329506802188916e-06,
+        "entropy": 4.363136634211173e-06,
+        "grad": 0.007812286232802723
+      },
+      "logits_mb": 593.5,
+      "kernel": "logprob+entropy",
+      "dtype": "bfloat16",
+      "backend": "naive",
+      "tolerance": 0.03,
+      "pass": true
+    },
+    {
+      "shape": "2048\u00d7151936",
+      "ms": 119.53910000738688,
+      "peak_mb": 9504.0400390625,
+      "err": {
+        "logp": 1.2535247293499197e-06,
+        "entropy": 1.6495836648644513e-05,
+        "grad": 0.007812286232802723
+      },
+      "logits_mb": 593.5,
+      "kernel": "logprob+entropy",
+      "dtype": "bfloat16",
+      "backend": "torch",
+      "tolerance": 0.03,
+      "pass": true
+    },
+    {
+      "shape": "2048\u00d7151936",
+      "ms": 15.187600001809187,
+      "peak_mb": 1782.5400390625,
+      "err": {
+        "logp": 1.2334958121584805e-06,
+        "entropy": 3.8572667335756705e-06,
+        "grad": 0.007812286232802723
+      },
+      "logits_mb": 593.5,
+      "kernel": "logprob+entropy",
+      "dtype": "bfloat16",
+      "backend": "triton",
+      "tolerance": 0.03,
+      "pass": true
+    },
+    {
+      "kernel": "logprob+entropy",
+      "dtype": "bfloat16",
+      "backend": "cuda",
+      "skipped": "kiln._cuda not built (needs nvcc at install time)"
+    },
+    {
+      "shape": "16384\u00d74096",
+      "ms": 32.465700001921505,
+      "peak_mb": 1536.0087890625,
+      "err": {
+        "y": 0.015622151365822567,
+        "dx": 0.015619924669415752,
+        "dw": 6.04894229604136e-05
+      },
+      "kernel": "rmsnorm",
+      "dtype": "bfloat16",
+      "backend": "naive",
+      "tolerance": 0.03,
+      "pass": true
+    },
+    {
+      "shape": "16384\u00d74096",
+      "ms": 30.959900002926588,
+      "peak_mb": 1408.1259765625,
+      "err": {
+        "y": 0.015622151365822567,
+        "dx": 0.015619924669415752,
+        "dw": 6.04894229604136e-05
+      },
+      "kernel": "rmsnorm",
+      "dtype": "bfloat16",
+      "backend": "torch",
+      "tolerance": 0.03,
+      "pass": true
+    },
+    {
+      "shape": "16384\u00d74096",
+      "ms": 4.611199998180382,
+      "peak_mb": 556.07958984375,
+      "err": {
+        "y": 0.015622151365822567,
+        "dx": 0.015619924669415752,
+        "dw": 6.04894229604136e-05
+      },
+      "kernel": "rmsnorm",
+      "dtype": "bfloat16",
+      "backend": "triton",
+      "tolerance": 0.03,
+      "pass": true
+    },
+    {
+      "kernel": "rmsnorm",
+      "dtype": "bfloat16",
+      "backend": "cuda",
+      "skipped": "kiln._cuda not built (needs nvcc at install time)"
+    },
+    {
+      "shape": "8192\u00d78192",
+      "ms": 26.904550002655014,
+      "peak_mb": 1536.0166015625,
+      "err": {
+        "y": 0.015621643306832134,
+        "dx": 0.015624588224396163,
+        "dw": 0.00011860586571368209
+      },
+      "kernel": "rmsnorm",
+      "dtype": "bfloat16",
+      "backend": "naive",
+      "tolerance": 0.03,
+      "pass": true
+    },
+    {
+      "shape": "8192\u00d78192",
+      "ms": 30.939399992348626,
+      "peak_mb": 1408.0634765625,
+      "err": {
+        "y": 0.015621643306832134,
+        "dx": 0.015624588224396163,
+        "dw": 0.00011860586571368209
+      },
+      "kernel": "rmsnorm",
+      "dtype": "bfloat16",
+      "backend": "torch",
+      "tolerance": 0.03,
+      "pass": true
+    },
+    {
+      "shape": "8192\u00d78192",
+      "ms": 4.515050008194521,
+      "peak_mb": 556.06396484375,
+      "err": {
+        "y": 0.015621643306832134,
+        "dx": 0.015624588224396163,
+        "dw": 0.00011860586571368209
+      },
+      "kernel": "rmsnorm",
+      "dtype": "bfloat16",
+      "backend": "triton",
+      "tolerance": 0.03,
+      "pass": true
+    },
+    {
+      "kernel": "rmsnorm",
+      "dtype": "bfloat16",
+      "backend": "cuda",
+      "skipped": "kiln._cuda not built (needs nvcc at install time)"
+    },
+    {
+      "shape": "4\u00d74096\u00d732\u00d7128",
+      "ms": 19.0162000071723,
+      "peak_mb": 520.0,
+      "err": {
+        "y": 4.860339686274529e-07,
+        "dq": 0.030652344503323548
+      },
+      "kernel": "rope",
+      "dtype": "bfloat16",
+      "backend": "naive",
+      "tolerance": 0.03,
+      "pass": true
+    },
+    {
+      "shape": "4\u00d74096\u00d732\u00d7128",
+      "ms": 22.009749998687766,
+      "peak_mb": 904.0009765625,
+      "err": {
+        "y": 0.015617821365594864,
+        "dq": 0.015620615653460845
+      },
+      "kernel": "rope",
+      "dtype": "bfloat16",
+      "backend": "torch",
+      "tolerance": 0.03,
+      "pass": true
+    },
+    {
+      "shape": "4\u00d74096\u00d732\u00d7128",
+      "ms": 5.519799989997409,
+      "peak_mb": 256.1884765625,
+      "err": {
+        "y": 0.015617821365594864,
+        "dq": 0.015620615653460845
+      },
+      "kernel": "rope",
+      "dtype": "bfloat16",
+      "backend": "triton",
+      "tolerance": 0.03,
+      "pass": true
+    },
+    {
+      "shape": "4096\u00d732000",
+      "ms": 40.50515001290478,
+      "peak_mb": 2500.0322265625,
+      "err": {
+        "logp": 1.9919382658883933e-06,
+        "entropy": 2.204575006103937e-06,
+        "grad": 2.064772179899421e-06
+      },
+      "logits_mb": 500.0,
+      "kernel": "logprob+entropy",
+      "dtype": "float32",
+      "backend": "naive",
+      "tolerance": 0.0001,
+      "pass": true
+    },
+    {
+      "shape": "4096\u00d732000",
+      "ms": 52.40309999499004,
+      "peak_mb": 3500.0791015625,
+      "err": {
+        "logp": 1.8271099335720464e-06,
+        "entropy": 1.4919441449823267e-05,
+        "grad": 7.859127356013573e-06
+      },
+      "logits_mb": 500.0,
+      "kernel": "logprob+entropy",
+      "dtype": "float32",
+      "backend": "torch",
+      "tolerance": 0.0001,
+      "pass": true
+    },
+    {
+      "shape": "4096\u00d732000",
+      "ms": 5.502450003405102,
+      "peak_mb": 500.0791015625,
+      "err": {
+        "logp": 1.8271099335720464e-06,
+        "entropy": 6.027787232687487e-06,
+        "grad": 2.256738770967104e-06
+      },
+      "logits_mb": 500.0,
+      "kernel": "logprob+entropy",
+      "dtype": "float32",
+      "backend": "triton",
+      "tolerance": 0.0001,
+      "pass": true
+    },
+    {
+      "kernel": "logprob+entropy",
+      "dtype": "float32",
+      "backend": "cuda",
+      "skipped": "kiln._cuda not built (needs nvcc at install time)"
+    },
+    {
+      "shape": "4096\u00d7128256",
+      "ms": 169.22124999109656,
+      "peak_mb": 10020.0322265625,
+      "err": {
+        "logp": 2.063311654865174e-06,
+        "entropy": 3.032052119600337e-06,
+        "grad": 1.4045500469350714e-06
+      },
+      "logits_mb": 2004.0,
+      "kernel": "logprob+entropy",
+      "dtype": "float32",
+      "backend": "naive",
+      "tolerance": 0.0001,
+      "pass": true
+    },
+    {
+      "shape": "4096\u00d7128256",
+      "ms": 1194.5264999958454,
+      "peak_mb": 14028.0791015625,
+      "err": {
+        "logp": 2.0605790993499795e-06,
+        "entropy": 1.5440888720519297e-05,
+        "grad": 6.960945282408204e-06
+      },
+      "logits_mb": 2004.0,
+      "kernel": "logprob+entropy",
+      "dtype": "float32",
+      "backend": "torch",
+      "tolerance": 0.0001,
+      "pass": true
+    },
+    {
+      "shape": "4096\u00d7128256",
+      "ms": 17.929499997990206,
+      "peak_mb": 2004.0791015625,
+      "err": {
+        "logp": 2.113424962146837e-06,
+        "entropy": 3.828241589509673e-06,
+        "grad": 4.32952441098422e-06
+      },
+      "logits_mb": 2004.0,
+      "kernel": "logprob+entropy",
+      "dtype": "float32",
+      "backend": "triton",
+      "tolerance": 0.0001,
+      "pass": true
+    },
+    {
+      "kernel": "logprob+entropy",
+      "dtype": "float32",
+      "backend": "cuda",
+      "skipped": "kiln._cuda not built (needs nvcc at install time)"
+    },
+    {
+      "shape": "2048\u00d7151936",
+      "ms": 96.14895000413526,
+      "peak_mb": 5940.0166015625,
+      "err": {
+        "logp": 2.0179121555941038e-06,
+        "entropy": 3.11583407963667e-06,
+        "grad": 1.1969178830284477e-06
+      },
+      "logits_mb": 1187.0,
+      "kernel": "logprob+entropy",
+      "dtype": "float32",
+      "backend": "naive",
+      "tolerance": 0.0001,
+      "pass": true
+    },
+    {
+      "shape": "2048\u00d7151936",
+      "ms": 118.27389999234583,
+      "peak_mb": 8316.0400390625,
+      "err": {
+        "logp": 1.984261729148784e-06,
+        "entropy": 1.2271708492939126e-05,
+        "grad": 4.4661658762379375e-06
+      },
+      "logits_mb": 1187.0,
+      "kernel": "logprob+entropy",
+      "dtype": "float32",
+      "backend": "torch",
+      "tolerance": 0.0001,
+      "pass": true
+    },
+    {
+      "shape": "2048\u00d7151936",
+      "ms": 10.486200000741519,
+      "peak_mb": 1188.0400390625,
+      "err": {
+        "logp": 2.029683077608979e-06,
+        "entropy": 4.756524283777708e-06,
+        "grad": 2.715542943843019e-06
+      },
+      "logits_mb": 1187.0,
+      "kernel": "logprob+entropy",
+      "dtype": "float32",
+      "backend": "triton",
+      "tolerance": 0.0001,
+      "pass": true
+    },
+    {
+      "kernel": "logprob+entropy",
+      "dtype": "float32",
+      "backend": "cuda",
+      "skipped": "kiln._cuda not built (needs nvcc at install time)"
+    },
+    {
+      "shape": "16384\u00d74096",
+      "ms": 26.057650000439025,
+      "peak_mb": 1280.0166015625,
+      "err": {
+        "y": 8.75555966395325e-07,
+        "dx": 1.0814994917396348e-06,
+        "dw": 4.481360712203786e-09
+      },
+      "kernel": "rmsnorm",
+      "dtype": "float32",
+      "backend": "naive",
+      "tolerance": 0.0001,
+      "pass": true
+    },
+    {
+      "shape": "16384\u00d74096",
+      "ms": 18.750050003291108,
+      "peak_mb": 1068.14208984375,
+      "err": {
+        "y": 8.75555966395325e-07,
+        "dx": 1.1102767230042332e-06,
+        "dw": 4.481360712203786e-09
+      },
+      "kernel": "rmsnorm",
+      "dtype": "float32",
+      "backend": "torch",
+      "tolerance": 0.0001,
+      "pass": true
+    },
+    {
+      "shape": "16384\u00d74096",
+      "ms": 6.914950005011633,
+      "peak_mb": 812.07958984375,
+      "err": {
+        "y": 1.235826935008788e-06,
+        "dx": 1.2422680502055528e-06,
+        "dw": 5.41173618244517e-09
+      },
+      "kernel": "rmsnorm",
+      "dtype": "float32",
+      "backend": "triton",
+      "tolerance": 0.0001,
+      "pass": true
+    },
+    {
+      "kernel": "rmsnorm",
+      "dtype": "float32",
+      "backend": "cuda",
+      "skipped": "kiln._cuda not built (needs nvcc at install time)"
+    },
+    {
+      "shape": "8192\u00d78192",
+      "ms": 21.642400010023266,
+      "peak_mb": 1280.0322265625,
+      "err": {
+        "y": 1.0110524533146759e-06,
+        "dx": 1.122764638594731e-06,
+        "dw": 7.20687898941863e-09
+      },
+      "kernel": "rmsnorm",
+      "dtype": "float32",
+      "backend": "naive",
+      "tolerance": 0.0001,
+      "pass": true
+    },
+    {
+      "shape": "8192\u00d78192",
+      "ms": 16.50080000399612,
+      "peak_mb": 1068.09521484375,
+      "err": {
+        "y": 1.0110524533146759e-06,
+        "dx": 1.126776806081864e-06,
+        "dw": 7.20687898941863e-09
+      },
+      "kernel": "rmsnorm",
+      "dtype": "float32",
+      "backend": "torch",
+      "tolerance": 0.0001,
+      "pass": true
+    },
+    {
+      "shape": "8192\u00d78192",
+      "ms": 8.332900004461408,
+      "peak_mb": 812.06396484375,
+      "err": {
+        "y": 1.1536012420876318e-06,
+        "dx": 1.2441456442857657e-06,
+        "dw": 6.764594889449582e-09
+      },
+      "kernel": "rmsnorm",
+      "dtype": "float32",
+      "backend": "triton",
+      "tolerance": 0.0001,
+      "pass": true
+    },
+    {
+      "kernel": "rmsnorm",
+      "dtype": "float32",
+      "backend": "cuda",
+      "skipped": "kiln._cuda not built (needs nvcc at install time)"
+    },
+    {
+      "shape": "4\u00d74096\u00d732\u00d7128",
+      "ms": 21.046449997811578,
+      "peak_mb": 640.0009765625,
+      "err": {
+        "y": 4.7122422852652335e-07,
+        "dq": 4.6163656097775174e-07
+      },
+      "kernel": "rope",
+      "dtype": "float32",
+      "backend": "naive",
+      "tolerance": 0.0001,
+      "pass": true
+    },
+    {
+      "shape": "4\u00d74096\u00d732\u00d7128",
+      "ms": 13.424999997369014,
+      "peak_mb": 520.0009765625,
+      "err": {
+        "y": 4.7122422852652335e-07,
+        "dq": 4.6163656097775174e-07
+      },
+      "kernel": "rope",
+      "dtype": "float32",
+      "backend": "torch",
+      "tolerance": 0.0001,
+      "pass": true
+    },
+    {
+      "shape": "4\u00d74096\u00d732\u00d7128",
+      "ms": 6.553700004587881,
+      "peak_mb": 512.1884765625,
+      "err": {
+        "y": 4.7213238207888253e-07,
+        "dq": 4.580758528049955e-07
+      },
+      "kernel": "rope",
+      "dtype": "float32",
+      "backend": "triton",
+      "tolerance": 0.0001,
+      "pass": true
+    }
+  ]
+}
