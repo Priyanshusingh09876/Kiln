@@ -20,9 +20,11 @@ kiln train configs/grpo_math_qwen3_8b.yaml --ray   # 8 trainer GPUs + 4 vLLM eng
 
 ## Highlights
 
-- **Fused Triton log-prob + entropy kernel: 7.4× faster and 3.3× less memory than PyTorch** at a 128k vocabulary
-  (forward + backward on an RTX 3080 Ti, checked against float64). RMSNorm 7.0×, RoPE 3.4×.
-  [Results](docs/benchmarks/kernels_rtx3080-laptop.md)
+- **Fused Triton log-prob + entropy kernel: 4.0× faster than `torch.compile`, 15× faster than PyTorch, at 73–86% of
+  the GPU's measured memory bandwidth**, using 10× less memory (1.0 GB, just the gradient buffer, vs 10 GB) at a 128k
+  vocabulary. 1.4× faster than Liger Kernel's cross-entropy while also computing entropy. Tuning made it 2.0× faster
+  than the first version. RTX 3080 Ti, bf16, forward + backward, checked against float64.
+  [Results](docs/benchmarks/kernels_rtx3080-laptop-v2.md) · [Tuning sweep](docs/benchmarks/tune_logprob_rtx3080-laptop.md)
 - **First GPU bring-up: 22 failing tests → 5 root causes → all fixed.** The two that CPU CI could never see now have
   CPU-side guards (Triton interpreter run, source-level encoding check).
   The worst was one line: a comment had swallowed `+ tl.sum(e)`, so the kernel returned `+inf` and every training
@@ -33,7 +35,8 @@ kiln train configs/grpo_math_qwen3_8b.yaml --ray   # 8 trainer GPUs + 4 vLLM eng
 - **Bit-exact checkpoint resume**, tested across processes and across two FSDP2 ranks; a prefix-cache-aware
   router (C++ core) that raised cache hit rate from 53% to 89% under load; canary rollouts with automatic rollback.
 - **Every claim has evidence or is marked as not done.** 20 bugs found and documented in
-  [`docs/STATUS.md`](docs/STATUS.md), including what is still slow or untested.
+  [`docs/STATUS.md`](docs/STATUS.md), including what is still slow or untested — for example, `torch.compile` still
+  beats my RMSNorm and RoPE kernels.
 
 ## Status
 
@@ -115,29 +118,59 @@ stays flat and the build fails.
 All numbers below were produced by the scripts named, and each report says what it does and does not
 measure. Raw JSON for every table is next to it in [`docs/benchmarks/`](docs/benchmarks).
 
-**Kernels on a GPU** — [`docs/benchmarks/kernels_rtx3080-laptop.md`](docs/benchmarks/kernels_rtx3080-laptop.md),
-`scripts/bench_kernels.py`, NVIDIA RTX 3080 Ti Laptop (16 GB, sm_86), Windows, torch 2.14 + CUDA 12.6.
-Forward + backward, median of 20 iterations, every row checked against a float64 reference (all within
-tolerance). *Naive* is the straightforward PyTorch formula.
+**Kernels on a GPU** — [`docs/benchmarks/kernels_rtx3080-laptop-v2.md`](docs/benchmarks/kernels_rtx3080-laptop-v2.md),
+`scripts/bench_kernels.py`, NVIDIA RTX 3080 Ti Laptop (16 GB, 58 SMs, sm_86), Windows, torch 2.14 + CUDA 12.6.
+Forward + backward through autograd, median of 20 iterations, every Kiln row within tolerance of a float64
+reference. Bandwidth is the minimum bytes the operation must move divided by its time, as a share of this GPU's
+measured copy bandwidth (418 GB/s; spec sheet 448 GB/s).
 
-| kernel (bf16) | shape | naive | Triton | speedup | peak memory naive → Triton |
-|---|---|---|---|---|---|
-| log-prob + entropy | 4096 × 32k vocab | 38.5 ms | 6.3 ms | 6.1× | 2.5 GB → 0.75 GB |
-| log-prob + entropy | 4096 × 128k vocab (Llama-3) | 153.6 ms | 20.8 ms | **7.4×** | **10.0 GB → 3.0 GB** |
-| log-prob + entropy | 2048 × 152k vocab (Qwen) | 91.2 ms | 15.2 ms | 6.0× | 5.9 GB → 1.8 GB |
-| RMSNorm | 16384 × 4096 | 32.5 ms | 4.6 ms | 7.0× | 1.5 GB → 0.56 GB |
-| RoPE | 4 × 4096 × 32 heads × 128 | 19.0 ms | 5.5 ms | 3.4× | 0.52 GB → 0.26 GB |
+Fused log-prob + entropy, bf16:
 
-In fp32 the fused log-prob kernel is 9.4× faster at 128k and uses 5× less memory. The memory column is the
-point: the naive path materialises several `[tokens, vocab]` fp32 tensors, which caps how many tokens fit
-in one micro-batch. One finding the run exposed: Kiln's own PyTorch *fallback* path (`KILN_KERNEL_BACKEND=torch`)
-was slower than naive and peaked at 16 GB at 128k — it saved full-size intermediates for backward. It is now
-chunked over tokens; the table above is from before that change and the re-measurement is pending.
+| shape (tokens × vocab) | PyTorch | `torch.compile` | Liger (CE only) | **Kiln Triton** | vs compile | % of copy BW | peak memory PyTorch → Kiln |
+|---|---|---|---|---|---|---|---|
+| 4096 × 32k | 38.9 ms | 8.7 ms | 3.9 ms | **2.2 ms** | 4.1× | 87% | 2.5 GB → 0.25 GB |
+| 4096 × 128k (Llama-3) | 153.6 ms | 40.9 ms | 14.7 ms | **10.3 ms** | 4.0× | 73% | 10.0 GB → 1.0 GB |
+| 2048 × 152k (Qwen) | 91.2 ms | 20.8 ms | 7.2 ms | **5.3 ms** | 3.9× | 84% | 5.9 GB → 0.59 GB |
+| 256 × 128k | 11.4 ms | 4.1 ms | 1.5 ms | **0.90 ms** | 4.6× | 53% | 630 MB → 63 MB |
+| 64 × 152k | 3.5 ms | 1.1 ms | 1.1 ms | 1.4 ms | 0.79× | 10% | 190 MB → 19 MB |
 
-These numbers are *v1* of the kernels. Since then: `scripts/bench_kernels.py` also compares against
-`torch.compile` and Liger Kernel and reports achieved bandwidth as a percentage of the GPU's measured copy
-bandwidth, and `scripts/tune_fused_logprob.py` sweeps block sizes, warps, split-row forward and tiled
-backward against v1. Results will replace the table above once run on the same GPU.
+Kiln's peak memory is the gradient buffer and nothing else. Liger computes cross-entropy only (no entropy) and
+overwrites the logits with the gradient, so it does less work and needs no buffer; it is a reference point, not a
+like-for-like match. Liger also returns the per-token loss in bf16, which is why its bf16 rows fail the float64
+check on the log-prob (error 0.06); its gradients are within tolerance.
+
+**Where Kiln does not win**, from the same run:
+
+| kernel, bf16 | `torch.compile` | Kiln Triton | Kiln vs compile |
+|---|---|---|---|
+| RMSNorm 16384 × 4096 | 2.8 ms | 4.3 ms | 0.66× |
+| RMSNorm 8192 × 8192 | 3.5 ms | 4.3 ms | 0.81× |
+| RoPE 4 × 4096 × 32 × 128 | 4.5 ms | 4.7 ms | 0.94× |
+| log-prob 64 × 152k (tiny batch) | 1.1 ms | 1.4 ms | 0.79× |
+
+The RMSNorm kernel reaches 37% of copy bandwidth and RoPE 27%; they have not been tuned yet. At 64 tokens
+everything is launch-overhead-bound, and Kiln's split-row heuristic picked a configuration the sweep showed to be
+slower (since changed, not yet re-measured). In fp32 at 4096 × 128k, Liger is faster (16.1 vs 21.6 ms); Kiln is
+faster at the other fp32 shapes.
+
+**Tuning: v1 → v2** — [`docs/benchmarks/tune_logprob_rtx3080-laptop.md`](docs/benchmarks/tune_logprob_rtx3080-laptop.md),
+`scripts/tune_fused_logprob.py`, kernel timings from `triton.testing.do_bench`:
+
+| shape, bf16 | v1 | v2 (shipped, through autograd) | speedup | % of copy BW |
+|---|---|---|---|---|
+| 4096 × 128k | 18.0 ms | 8.8 ms | 2.1× | 86% |
+| 2048 × 152k | 14.5 ms | 6.2 ms | 2.3× | 72% |
+| 256 × 128k | 1.21 ms | 0.56 ms | 2.2× | 84% |
+| 64 × 152k | 0.37 ms | 0.33 ms | 1.1× | 42% |
+
+Most of the gain is the backward: v1 wrote an fp32 gradient and converted it to bf16 in a second pass, moving
+three times the bytes. Both versions ran at about 420 GB/s; v2 simply moves less (15.0 → 5.0 ms at 4096 × 128k).
+Retuning block size and warps took the forward from 3.06 to 2.44 ms. Splitting rows across programs never won at
+these shapes. The v1 numbers are in [`kernels_rtx3080-laptop.md`](docs/benchmarks/kernels_rtx3080-laptop.md).
+
+The PyTorch fallback (`KILN_KERNEL_BACKEND=torch`, used only without Triton) is now chunked over tokens: at
+4096 × 128k in bf16 it went from 1.4 s and 16.0 GB to 176 ms and 2.3 GB, on par with PyTorch speed at 4.4× less
+memory.
 
 **Sync vs async GRPO, reproduced on a second machine** — [`docs/benchmarks/sync_vs_async_rtx3080-laptop.md`](docs/benchmarks/sync_vs_async_rtx3080-laptop.md):
 async with queue depth 4 reached reward 0.8 **2.0× sooner** (16.0 vs 31.4 s) and the trainer was busy 54% of
@@ -269,7 +302,7 @@ in the run that printed it. The vLLM/SGLang engines track upstream APIs that
 move quickly — pin the versions in `deploy/docker/Dockerfile` if you are
 deploying.
 
-Roadmap, in order: re-run the kernel benchmark and tuning sweep on the RTX 3080 Ti; build the CUDA C++ extension with nvcc and benchmark it; GPU validation tiers 1–3 from `docs/VALIDATION.md`
+Roadmap, in order: tune the RMSNorm and RoPE kernels until they beat `torch.compile`; build the CUDA C++ extension with nvcc and benchmark it; GPU validation tiers 1–3 from `docs/VALIDATION.md`
 (kernels, then FSDP2 + vLLM on one node via Ray, then multi-node with failure
 injection); tensor parallelism in the trainer, then pipeline (1F1B) and
 context parallelism; MoE expert parallelism; TensorRT-LLM rollout engine;

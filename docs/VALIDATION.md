@@ -110,6 +110,7 @@ and the loss-curve comparison.
 |---|---|---|---|---|
 | 0 | 2026-10-26 | CPU container | all passing | `docs/benchmarks/*cpu*` |
 | 1 (partial) | 2026-10-26 | RTX 3080 Ti Laptop 16 GB, Windows, torch 2.14 + CUDA 12.6, triton-windows | full suite passes after fixing 5 bugs found on this machine (STATUS.md #16–20); Triton kernels benchmarked; CUDA C++ ext not built | `docs/benchmarks/*rtx3080-laptop*` |
+| 1 (partial) | 2026-10-26 | same | fused log-prob v2 + baselines: 2.1× over v1, 4.0× over `torch.compile`, 73–86% of copy BW at 4096×128k; RMSNorm/RoPE slower than `torch.compile` | `kernels_rtx3080-laptop-v2.md`, `tune_logprob_rtx3080-laptop.md` |
 | 2a | — | — | not run yet | |
 | 2b | — | — | needs Ray path first | |
 | 2c | — | — | not run yet | |

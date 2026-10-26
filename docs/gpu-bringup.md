@@ -92,7 +92,7 @@ The async-vs-sync scheduling benchmark reproduced on this machine
 depth 4 reached the target reward 2.0× sooner in wall time, with the trainer busy 54% of the time instead of 5%.
 That benchmark simulates generation latency, so it measures scheduling, not GPU throughput.
 
-## What the benchmark exposed, and what changed after it
+## What the benchmark exposed, and what v2 changed
 
 Kiln's own PyTorch fallback for log-prob + entropy (`KILN_KERNEL_BACKEND=torch`, used only where Triton is
 unavailable) is correct but slower than the naive formula, and at 4096 × 128k it peaked at 16 GB — the whole card —
@@ -108,7 +108,19 @@ size and warp count were fixed by hand. Version 2 stores the gradient directly i
 size and warps, runs the backward on a 2-D grid of independent tiles, and splits each row across several programs
 when the batch is too short to fill the GPU. `scripts/tune_fused_logprob.py` measures every configuration against
 v1, and `scripts/bench_kernels.py` now compares against `torch.compile` and Liger Kernel and reports % of measured
-copy bandwidth. Results go here once they are measured.
+copy bandwidth.
+
+**Measured** ([`benchmarks/tune_logprob_rtx3080-laptop.md`](benchmarks/tune_logprob_rtx3080-laptop.md),
+[`benchmarks/kernels_rtx3080-laptop-v2.md`](benchmarks/kernels_rtx3080-laptop-v2.md)): at 4096 × 128k in bf16, v2 runs
+in 8.8 ms against v1's 18.0 ms (2.1×), at 86% of measured copy bandwidth. Most of it was the backward — 15.0 → 5.0 ms
+with both versions moving data at about 420 GB/s; v2 just moves a third as much. Through autograd it is 4.0× faster
+than `torch.compile` and uses 1.0 GB instead of PyTorch's 10 GB. The sweep also proved one of my ideas wrong:
+splitting rows across programs never beat one program per row, and the heuristic I shipped picked a slower split at
+64 rows. It now splits only when there are fewer rows than SMs. The chunked fallback went from 1.4 s / 16 GB to
+176 ms / 2.3 GB.
+
+The same benchmark shows where Kiln still loses: `torch.compile` is faster than my RMSNorm (0.66×) and RoPE (0.94×)
+kernels, and at 64 tokens everything is launch-overhead-bound. Those are the next things to fix.
 
 ## Lessons
 

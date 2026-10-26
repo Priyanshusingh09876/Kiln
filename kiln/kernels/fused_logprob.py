@@ -244,14 +244,23 @@ def _combine_partials(m, l, s, t):  # noqa: E741
 
 
 def split_factor(n_rows: int, V: int, device: torch.device | None = None) -> int:
-    """How many programs to split each row across so the GPU has ~4 programs per SM."""
+    """How many programs to split each row across.
+
+    Only when there are fewer rows than SMs. The RTX 3080 Ti sweep
+    (``docs/benchmarks/tune_logprob_rtx3080-laptop.md``) found one program per row
+    fastest at every shape it measured, down to 64 rows on 58 SMs, where the
+    original rule (aim for 4 programs per SM) picked a 4-way split that was slower.
+    Splitting below one row per SM is kept for decode-sized batches but is unmeasured.
+    """
     env = os.environ.get("KILN_LOGPROB_SPLIT")
     if env:
         return max(1, int(env))
     if device is None or not torch.cuda.is_available():
         return 1
     sms = torch.cuda.get_device_properties(device).multi_processor_count
-    want = _cdiv(4 * sms, max(n_rows, 1))
+    if n_rows >= sms:
+        return 1
+    want = _cdiv(sms, max(n_rows, 1))
     return max(1, min(want, _cdiv(V, SPLIT_GRAIN)))
 
 
