@@ -81,6 +81,15 @@ def train(
         out = launch(cfg, RayConfig(num_engines=cfg.rollout.num_engines))
         console.print_json(json.dumps(out, default=float))
         return
+    if cfg.algorithm.name == "dpo":
+        from kiln.trainer.dpo import DPORunner
+
+        res = DPORunner.from_config(cfg).run()
+        console.print(f"[bold green]done[/bold green] {res.steps} DPO steps; run dir: {res.run_dir}")
+        _print_kv(
+            "final metrics", {k: v for k, v in res.final_metrics.items() if k.startswith(("dpo", "loss"))}
+        )
+        return
     from kiln.orchestration import AsyncController
 
     ctl = AsyncController.from_config(cfg)

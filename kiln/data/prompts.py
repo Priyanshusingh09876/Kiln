@@ -165,9 +165,15 @@ class PreferencePair:
 class PreferenceDataset:
     """For DPO: rows with ``prompt``, ``chosen``, ``rejected`` text fields."""
 
-    def __init__(self, path: str | Path, tokenizer: Tokenizer, max_len: int = 4096):
+    def __init__(
+        self,
+        path: str | Path | None,
+        tokenizer: Tokenizer,
+        max_len: int = 4096,
+        rows: list[dict] | None = None,
+    ):
         self.pairs: list[PreferencePair] = []
-        for r in _read_rows(path):
+        for r in rows if rows is not None else _read_rows(path):
             p = tokenizer.encode(r["prompt"])
             c = tokenizer.encode(r["chosen"])[1:] + [tokenizer.eos_id]
             j = tokenizer.encode(r["rejected"])[1:] + [tokenizer.eos_id]
