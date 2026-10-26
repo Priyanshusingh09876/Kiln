@@ -88,7 +88,9 @@ def test_resume_pushes_restored_weights_to_engines(tmp_path):
     eng = c2.workers[0].engine
     assert eng.policy_version == 3
     for k, v in c2.trainer.model.state_dict().items():
-        assert torch.equal(eng.model.state_dict()[k], v), f"engine has stale weights for {k}"
+        assert torch.equal(eng.model.state_dict()[k].cpu(), v.detach().cpu()), (
+            f"engine has stale weights for {k}"
+        )
 
 
 def test_async_resume_completes_and_respects_staleness(tmp_path):
