@@ -32,7 +32,7 @@ vllm = ["vllm>=0.6"]
 sglang = ["sglang>=0.3", "httpx>=0.27"]
 reward = ["fastapi>=0.110", "uvicorn>=0.29", "httpx>=0.27", "sympy>=1.12"]
 triton = ["triton>=3.0"]
-dev = ["pytest>=8.0", "pytest-timeout", "ruff>=0.5", "mypy>=1.10", "pre-commit", "fastapi", "httpx"]
+dev = ["pytest>=8.0", "pytest-timeout", "ruff>=0.5", "mypy>=1.10", "pre-commit", "fastapi", "httpx", "uvicorn"]
 all = ["kiln-rl[train,ray,vllm,reward,triton,dev]"]
 
 [project.scripts]

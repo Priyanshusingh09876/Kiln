@@ -6,10 +6,11 @@
 
 In synchronous RL post-training (the verl / OpenRLHF default), one optimizer
 step waits for the *slowest* rollout in the batch. With reasoning models,
-response lengths are heavy-tailed (p50 ≈ 800 tokens, p99 ≈ 8k), so the
+response lengths are heavy-tailed (a p99 ten times the median is typical), so the
 trainer GPUs sit idle for most of each step waiting on a handful of long
-generations. Measured on an internal 8+4 GPU layout this put trainer
-utilisation under 30%.
+generations. In the CPU scheduling simulation below, the synchronous
+trainer was busy only 4% of wall time; on real GPUs the fraction depends on
+model size and length distribution and has not been measured yet.
 
 ## Decision
 
@@ -75,5 +76,32 @@ time with a cooldown.
 * **Drain-and-sync (verl default):** simplest, but leaves the trainer idle
   on the length tail. Kept as the `partial_rollout=false` path.
 * **Fully off-policy replay buffer (large, reused across many versions):**
-  higher sample efficiency on paper but destabilised training in practice
-  past staleness ≈ 4; the bounded buffer is the compromise.
+  higher sample efficiency on paper, but importance weights become
+  high-variance as staleness grows and truncating them biases the gradient;
+  the bounded buffer keeps both small. Where the useful limit lies for real
+  models is an open question for the GPU runs.
+
+## Measured (CPU scheduling simulation)
+
+`docs/benchmarks/sync_vs_async_cpu-sim.md`: with 4 engines and lognormal response
+lengths, async reached the target reward 1.9× (queue depth 2) and 2.4× (depth 4)
+sooner in wall time than a synchronous loop that splits each batch across all four
+engines, at slightly lower reward per step. Two findings from that run shaped the
+guidance above:
+
+* **Queue depth must be at least the number of engines.** With depth 2 and 4
+  engines, 43% of generated batches were dropped as stale: finished batches aged
+  while their workers waited for a free slot. Depth 4 cut that to 20%.
+* **Compare reward against wall time, not steps.** Per step, staleness costs a
+  little; per second, async wins. A benchmark that plots reward per step will
+  always make async look worse.
+
+## Resume semantics
+
+A checkpoint stores, besides weights and optimizer state, each rollout worker's
+position in its (seeded, deterministic) prompt stream and the engine's sampler
+RNG. On resume the engines are re-synced to the restored weights *before* any
+rollout. Without that, every new sample is tagged with the initial policy
+version, the buffer drops it as stale, and an async run hangs — which is what
+happened before `tests/test_resume.py` existed. Synchronous runs resume
+bit-identically; asynchronous runs skip the batches that were in flight.

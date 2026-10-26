@@ -10,13 +10,23 @@
 
 ```bash
 pip install torch && pip install --no-build-isolation -e ".[dev]"   # builds the C++ ext; CUDA ext too if nvcc is present
-pytest -q                                   # 118 tests, ~1 min on a laptop CPU, no GPU needed
+pytest -q                                   # 136 tests, ~2 min on a laptop CPU, no GPU needed
 kiln train configs/tiny_cpu_smoke.yaml      # the full async GRPO loop end-to-end on CPU
 python examples/01_async_grpo_cpu.py        # same, with a learning curve
-kiln train configs/grpo_math_qwen3_8b.yaml --ray   # 8 trainer GPUs + 4 vLLM engines
+kiln train configs/grpo_math_qwen3_8b.yaml --ray   # 8 trainer GPUs + 4 vLLM engines (not yet run, see Status)
 ```
 
 > Windows without a C++ compiler: `set KILN_SKIP_NATIVE=1` (PowerShell: `$env:KILN_SKIP_NATIVE="1"`) before `pip install -e ".[dev]"`. Everything runs; the native-extension tests skip.
+
+## Status
+
+**Tested on CPU, not yet on GPUs.** The algorithms, the async loop, checkpointing and exact resume,
+data-parallel FSDP2 across real processes, the reward server, the router, the canary controller and the
+gateway are all exercised by the test suite on every commit. The GPU-specific parts — Triton and CUDA C++
+kernels, vLLM/SGLang engines, NCCL weight sync, the Ray runtime — are written but have not run on GPU
+hardware yet. Tensor, pipeline and context parallelism are not implemented. Every component and its
+evidence is listed in [`docs/STATUS.md`](docs/STATUS.md); the plan and results log for GPU and
+multi-node validation are in [`docs/VALIDATION.md`](docs/VALIDATION.md).
 
 ## Why this exists
 
@@ -50,7 +60,7 @@ training loop without them does not run for three days on 64 GPUs.
  └──────────────────────────┬───────────────────────┘
                             ▼
  ┌──────────────────────────────────────────────────┐
- │ PolicyTrainer (FSDP2 dp × TP × PP × CP mesh)     │  1. old_logp / ref_logp (no-grad, packed)
+ │ PolicyTrainer (data-parallel FSDP2)              │  1. old_logp / ref_logp (no-grad, packed)
  │   algorithm: GRPO · Dr.GRPO · RLOO · REINFORCE++ │  2. advantages (group stats / GAE)
  │              · PPO (+critic) · DPO (offline)      │  3. clipped surrogate × IS weights, KL, entropy
  │   kernels:   fused logprob+entropy, RMSNorm, RoPE,│  4. clip grads, optimizer step
@@ -82,19 +92,50 @@ learns as well as the synchronous one. `tests/test_e2e.py` asserts this on
 every CI run; if any link in the alignment chain is off by one, the curve
 stays flat and the build fails.
 
+## Benchmarks
+
+All numbers below were produced by the scripts named, on a CPU-only machine, and each report says what it
+does and does not measure. GPU results will be added to [`docs/benchmarks/`](docs/benchmarks) as the
+[validation plan](docs/VALIDATION.md) is carried out; until then there are none.
+
+**Sync vs async GRPO** — [`docs/benchmarks/sync_vs_async_cpu-sim.md`](docs/benchmarks/sync_vs_async_cpu-sim.md),
+`scripts/bench_sync_vs_async.py`, 3 seeds. A *scheduling simulation*: 4 mock engines with a heavy-tailed
+decode-latency model stand in for GPU generation; training is real. Synchronous mode splits each batch
+across all engines, as verl does.
+
+| mode | time to reward ≥ 0.8 | trainer busy | final reward | batches dropped as stale |
+|---|---|---|---|---|
+| sync | 30.5 ± 3.1 s | 4% | 0.991 | 0% |
+| async, queue depth 2 | 16.0 ± 3.2 s (1.9× sooner) | 24% | 0.979 | 43% |
+| async, queue depth 4 | 12.7 ± 2.7 s (2.4× sooner) | 33% | 0.959 | 20% |
+
+Async reaches the target reward about twice as fast in wall time at slightly lower reward per step. The
+dropped column is the cost of a queue shallower than the number of engines.
+
+**Gateway under load** — [`docs/benchmarks/gateway_demo.md`](docs/benchmarks/gateway_demo.md),
+`examples/04_gateway_canary_demo.py`. Real gateway, router and canary controller over HTTP; replicas
+simulate an engine with a prefix cache. Prefix-aware routing raised the replica cache hit rate from 53% to
+89% and throughput by 27% versus least-loaded routing, at the cost of balance (busiest replica 37% of
+traffic vs 25%). A canary that turned 3× slower at 25% of traffic was rolled back automatically. Judging a
+canary against the warm fleet rolled back a *healthy* build; comparing it with a matched control fixed that.
+
+**Kernels** — [`docs/benchmarks/kernels_cpu.md`](docs/benchmarks/kernels_cpu.md), `scripts/bench_kernels.py`.
+On CPU this covers the reference paths only (all within tolerance of a float64 reference). Triton and
+CUDA C++ timings, errors and peak memory need a GPU run.
+
 ## What's inside
 
 | Area | Module | What it does |
 |---|---|---|
 | Algorithms | `kiln/algorithms` | GRPO, Dr. GRPO, RLOO, REINFORCE++, PPO with GAE + clipped value loss, DPO/IPO/hinge. DAPO clip-higher, dual-clip, token / sequence / length-unbiased loss aggregation, k1/k2/k3 KL, adaptive KL controller, KL-in-reward or KL-in-loss. |
 | Async loop | `kiln/orchestration` | Version-aware `ExperienceBuffer`, `RolloutWorker`, `StalenessController` (adaptive queue depth), `AsyncController`; Ray runtime with placement groups, colocated or disaggregated layouts. |
-| Trainer | `kiln/trainer`, `kiln/distributed` | FSDP2 `fully_shard` per block with mixed precision and activation checkpointing; `(pp, dp, cp, tp)` device mesh; sequence packing with first-fit-decreasing and block-diagonal masks; MFU accounting that counts the forward-only passes honestly. |
+| Trainer | `kiln/trainer`, `kiln/distributed` | Data-parallel FSDP2 (`fully_shard` per block, mixed precision, activation checkpointing), tested across real processes on CPU; offline DPO trainer; sequence packing with first-fit-decreasing and block-diagonal masks; MFU accounting that counts the forward-only passes honestly. Tensor/pipeline/context parallelism: not implemented (configs requesting them are rejected). |
 | Rollouts | `kiln/rollout` | Engine contract (`generate / update_weights / pause / resume / sleep / wake`); vLLM engine with an in-worker extension for NCCL weight receive and in-place `load_weights` (KV cache and CUDA graphs survive); SGLang HTTP engine; mock engine for CPU tests. |
 | Kernels | `kiln/kernels`, `csrc/` | Single-pass online-softmax log-prob + entropy (fwd + bwd, never materialises `[N,V]` probs), RMSNorm, RoPE with arbitrary positions, DeepSeek-style FP8 block-scaled GEMM — in Triton, plus **CUDA C++** versions of the two hottest (log-prob/entropy, RMSNorm) with warp-shuffle reductions and fp16/bf16/fp32 dispatch. Every kernel has a PyTorch reference path and a parity test; `KILN_KERNEL_BACKEND` pins CUDA / Triton / torch against each other. |
 | Rewards | `kiln/reward` | Composable rule verifiers (`\boxed{}` math with fraction/sympy equivalence, format, repetition, length, sandboxed Python unit tests), FastAPI reward server with Prometheus metrics, retrying batched client, reward-model scorer. |
 | Checkpointing | `kiln/checkpoint` | Async, atomic, rank-sharded; safetensors for weights; back-pressure; writer errors surfaced, never swallowed. |
 | Serving | `kiln/serving`, `csrc/radix_tree.cpp` | Prefix-cache-aware router (block radix tree + load cap; **C++ core** with zero-copy NumPy entry points, differential-tested against the Python reference), continuous-batching scheduler with paged KV, chunked prefill and youngest-first preemption (doubles as a capacity-planning simulator), SLO-gated canary controller, OpenAI-compatible gateway. |
-| Ops | `configs/`, `deploy/`, `.github/` | Strict pydantic YAML schema with env expansion and CLI overrides; KubeRay job, reward server with no-egress NetworkPolicy, gateway deployment; Slurm scripts; CI with lint, CPU tests on two Pythons, host-side CUDA type-check, perf-regression gate, GPU runner job. |
+| Ops | `configs/`, `deploy/`, `.github/` | Strict pydantic YAML schema with env expansion and CLI overrides; KubeRay job, reward server with no-egress NetworkPolicy, gateway deployment; Slurm scripts; CI with lint, CPU tests on two Pythons, host-side CUDA type-check, 2-process FSDP2 test, perf-regression gate; a GPU job is defined but needs a self-hosted GPU runner, which is not attached yet. |
 
 ## Design notes
 
@@ -144,35 +185,46 @@ scheduler simulator.
 * **Async must be checkable against sync.** With `max_staleness=0` the run
   is bit-for-bit deterministic and every importance weight is exactly 1.
 * **Kernels are tested forward and backward** at fp32 and bf16, at
-  non-power-of-two sizes, with extreme logits, and (on CUDA) Triton and the
-  CUDA C++ extension against the reference path.
-* **Native code is checked on every PR, not only on the GPU runner.** The
-  C++ extension builds and runs in CPU CI; the `.cu` sources are
-  type-checked by g++ against real libtorch + CUDA headers
-  (`scripts/check_cuda_host_compile.sh`) so a broken template or signature
-  fails before it reaches the H100 job. The C++ radix tree is
+  non-power-of-two sizes, with extreme logits; on a CUDA machine the same
+  tests pin Triton and the CUDA C++ extension against the reference path
+  (not yet run — see Status).
+* **Native code is checked on every PR without a GPU.** The C++ extension
+  builds and runs in CPU CI; the `.cu` sources are type-checked by g++
+  against real libtorch + CUDA headers (`scripts/check_cuda_host_compile.sh`),
+  so a broken template or signature fails in CI rather than on the first GPU
+  build. That catches compile errors, not wrong results. The C++ radix tree is
   differential-tested against the Python reference over hundreds of
   randomised trials — which is how an LRU-eviction bug in the Python version
   was found.
 * **Infrastructure gets failure tests**: checkpoint writer errors surface,
   live weights can be mutated while a write is in flight, a dead rollout
-  worker fails the run instead of hanging it, a tripped canary stays tripped.
+  worker fails the run instead of hanging it, a tripped canary stays tripped,
+  and a health probe can never advance a canary rollout.
+* **Recovery is tested for exactness.** A run interrupted at a checkpoint and
+  resumed in a fresh process must match an uninterrupted run bit for bit —
+  weights, losses and data order — in one process and across two FSDP2 ranks.
+  Writing these tests found that resumed runs restarted the prompt stream and
+  left the rollout engines on the initial weights (which hung async runs);
+  `docs/STATUS.md` lists all fifteen bugs found this way.
 
 ## Status and honesty
 
-This is infrastructure code, tested on CPU in CI and exercised on GPU
-hardware I have access to. The CUDA C++ kernels in `csrc/` are compiled and
-parity-tested in the GPU CI job; on CPU they are type-checked only, so if
-you build on an unusual toolchain, run `pytest tests/test_native.py` first.
-The throughput numbers you get from `kiln bench` are the throughput numbers
+This is infrastructure code that has been tested on CPU only. The GPU paths
+(Triton and CUDA C++ kernels, vLLM/SGLang engines, NCCL weight sync, the Ray
+runtime) are written and type-checked but have not been executed on GPU
+hardware; the CUDA C++ sources are compiled by g++ against real headers in CI,
+not yet by nvcc. `docs/STATUS.md` marks each component, and
+`docs/VALIDATION.md` is the plan for running the rest. The throughput numbers you get from `kiln bench` are the throughput numbers
 on *your* hardware; nothing in this repo claims a number it did not measure
 in the run that printed it. The vLLM/SGLang engines track upstream APIs that
 move quickly — pin the versions in `deploy/docker/Dockerfile` if you are
 deploying.
 
-Roadmap: pipeline-parallel schedule inside the trainer (the mesh and groups
-exist, the 1F1B schedule does not yet), MoE expert parallelism, TensorRT-LLM
-rollout engine, GSPO as a first-class algorithm.
+Roadmap, in order: GPU validation tiers 1–3 from `docs/VALIDATION.md`
+(kernels, then FSDP2 + vLLM on one node via Ray, then multi-node with failure
+injection); tensor parallelism in the trainer, then pipeline (1F1B) and
+context parallelism; MoE expert parallelism; TensorRT-LLM rollout engine;
+GSPO as a first-class algorithm.
 
 ## License
 

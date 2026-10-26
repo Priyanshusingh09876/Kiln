@@ -13,4 +13,4 @@ Build: `pip install --no-build-isolation -e .` — builds `_C` always and `_cuda
 
 Why both CUDA C++ *and* Triton versions of the same two kernels? Triton is the fast way to iterate and is what the rest of the kernel set (RoPE, FP8 GEMM) uses. The CUDA versions exist for environments where Triton's JIT is unwelcome (inference images, deterministic builds), as the reference for register-level tuning (`-lineinfo` is on for Nsight), and because `KILN_KERNEL_BACKEND` lets the parity tests pin all three paths against each other.
 
-Testing status: the C++ extension is built and tested on every CI run. The CUDA sources are type-checked against real libtorch + CUDA headers on every CI run (`cuda-host-check` job) and compiled + parity-tested by `tests/test_native.py` on the GPU runner job.
+Testing status: the C++ extension is built and tested on every CI run. The CUDA sources are type-checked against real libtorch + CUDA headers on every CI run (`cuda-host-check` job). They have **not yet been compiled by nvcc or executed**; `tests/test_native.py` contains the GPU parity tests that will do that (tier 1 in `docs/VALIDATION.md`).

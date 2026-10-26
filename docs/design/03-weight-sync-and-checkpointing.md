@@ -56,3 +56,20 @@ device→host copy and a slow, GPU-irrelevant write. `AsyncCheckpointer`:
 `tests/test_checkpoint_and_config.py::test_training_can_mutate_source_tensors_while_write_in_flight`
 is the test that matters: it mutates the live weights right after `save()`
 returns and verifies the checkpoint still holds the old values.
+
+## Multi-rank details learned the hard way
+
+* The writer thread coordinates ranks with barriers. Those must go through a
+  **dedicated gloo process group** created on the main thread, never the
+  training group: two threads issuing collectives on one group can interleave
+  and deadlock.
+* Each rank saves its local FSDP2 shards as plain tensors. Loading copies them
+  back into `param.to_local()` (`load_sharded_state_dict`), and optimizer state
+  is re-wrapped as DTensors matching each parameter (`rewrap_optimizer_state`),
+  otherwise the first post-resume step mixes DTensor parameters with plain state.
+* Rollout engines hold their own unsharded copy of the policy. Giving them the
+  trainer's sharded module would make generation issue FSDP collectives on
+  different ranks at different times.
+
+`tests/test_multirank.py` runs two real processes over gloo and checks sharding,
+gradient sync, rank-sharded checkpoints and a bit-exact resume.

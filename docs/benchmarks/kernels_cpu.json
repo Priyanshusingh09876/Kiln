@@ -1,0 +1,182 @@
+{
+  "meta": {
+    "date": "2026-10-26",
+    "device": "CPU (x86_64)",
+    "torch": "2.14.1+cu130",
+    "cuda": "13.0",
+    "backends": {
+      "naive": null,
+      "torch": null,
+      "triton": "no CUDA device",
+      "cuda": "no CUDA device"
+    },
+    "iters": 5,
+    "command": "python scripts/bench_kernels.py --tag cpu"
+  },
+  "rows": [
+    {
+      "shape": "256\u00d74096",
+      "ms": 9.838682999998127,
+      "peak_mb": null,
+      "err": {
+        "logp": 1.5933549022406623e-06,
+        "entropy": 1.4581216536413422e-06,
+        "grad": 1.490058358033508e-06
+      },
+      "logits_mb": 4.0,
+      "kernel": "logprob+entropy",
+      "dtype": "float32",
+      "backend": "naive",
+      "tolerance": 0.0001,
+      "pass": true
+    },
+    {
+      "shape": "256\u00d74096",
+      "ms": 4.5812130001650075,
+      "peak_mb": null,
+      "err": {
+        "logp": 1.3329248353954881e-06,
+        "entropy": 6.853882299040492e-06,
+        "grad": 5.524079819574368e-06
+      },
+      "logits_mb": 4.0,
+      "kernel": "logprob+entropy",
+      "dtype": "float32",
+      "backend": "torch",
+      "tolerance": 0.0001,
+      "pass": true
+    },
+    {
+      "kernel": "logprob+entropy",
+      "dtype": "float32",
+      "backend": "triton",
+      "skipped": "no CUDA device"
+    },
+    {
+      "kernel": "logprob+entropy",
+      "dtype": "float32",
+      "backend": "cuda",
+      "skipped": "no CUDA device"
+    },
+    {
+      "shape": "256\u00d732000",
+      "ms": 65.5151629998727,
+      "peak_mb": null,
+      "err": {
+        "logp": 3.6869893342839077e-06,
+        "entropy": 7.450586713808605e-06,
+        "grad": 8.091213041350187e-06
+      },
+      "logits_mb": 31.25,
+      "kernel": "logprob+entropy",
+      "dtype": "float32",
+      "backend": "naive",
+      "tolerance": 0.0001,
+      "pass": true
+    },
+    {
+      "shape": "256\u00d732000",
+      "ms": 81.91930699967997,
+      "peak_mb": null,
+      "err": {
+        "logp": 1.4531336063328126e-06,
+        "entropy": 1.4147861146174279e-05,
+        "grad": 6.183864408537687e-06
+      },
+      "logits_mb": 31.25,
+      "kernel": "logprob+entropy",
+      "dtype": "float32",
+      "backend": "torch",
+      "tolerance": 0.0001,
+      "pass": true
+    },
+    {
+      "kernel": "logprob+entropy",
+      "dtype": "float32",
+      "backend": "triton",
+      "skipped": "no CUDA device"
+    },
+    {
+      "kernel": "logprob+entropy",
+      "dtype": "float32",
+      "backend": "cuda",
+      "skipped": "no CUDA device"
+    },
+    {
+      "shape": "2048\u00d71024",
+      "ms": 8.858006000082241,
+      "peak_mb": null,
+      "err": {
+        "y": 9.251162795820278e-07,
+        "dx": 1.2056852671804563e-06,
+        "dw": 1.1456666226816736e-08
+      },
+      "kernel": "rmsnorm",
+      "dtype": "float32",
+      "backend": "naive",
+      "tolerance": 0.0001,
+      "pass": true
+    },
+    {
+      "shape": "2048\u00d71024",
+      "ms": 6.405986000117991,
+      "peak_mb": null,
+      "err": {
+        "y": 9.251162795820278e-07,
+        "dx": 8.719155273340107e-07,
+        "dw": 1.1456666226816736e-08
+      },
+      "kernel": "rmsnorm",
+      "dtype": "float32",
+      "backend": "torch",
+      "tolerance": 0.0001,
+      "pass": true
+    },
+    {
+      "kernel": "rmsnorm",
+      "dtype": "float32",
+      "backend": "triton",
+      "skipped": "no CUDA device"
+    },
+    {
+      "kernel": "rmsnorm",
+      "dtype": "float32",
+      "backend": "cuda",
+      "skipped": "no CUDA device"
+    },
+    {
+      "shape": "2\u00d7256\u00d78\u00d764",
+      "ms": 1.2913309997202305,
+      "peak_mb": null,
+      "err": {
+        "y": 4.2065664729307173e-07,
+        "dq": 3.567150512751027e-07
+      },
+      "kernel": "rope",
+      "dtype": "float32",
+      "backend": "naive",
+      "tolerance": 0.0001,
+      "pass": true
+    },
+    {
+      "shape": "2\u00d7256\u00d78\u00d764",
+      "ms": 1.24013599997852,
+      "peak_mb": null,
+      "err": {
+        "y": 4.2065664729307173e-07,
+        "dq": 3.567150512751027e-07
+      },
+      "kernel": "rope",
+      "dtype": "float32",
+      "backend": "torch",
+      "tolerance": 0.0001,
+      "pass": true
+    },
+    {
+      "kernel": "rope",
+      "dtype": "float32",
+      "backend": "triton",
+      "skipped": "no CUDA device"
+    }
+  ]
+}

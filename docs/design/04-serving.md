@@ -53,3 +53,27 @@ is how you ship a bad model twice.
 
 The gateway (`gateway.py`) wires router + canary behind an
 OpenAI-compatible `/v1/completions` and exports Prometheus metrics.
+
+## What the load test changed
+
+Running the gateway under real HTTP load (`examples/04_gateway_canary_demo.py`,
+results in `docs/benchmarks/gateway_demo.md`) found four problems in the first
+version of this design:
+
+1. **Evaluation was only triggered by `/healthz`.** Under load with no health
+   checks a bad canary was never rolled back, and every health probe could
+   *promote* it. Evaluation is now driven by canary traffic (every
+   `eval_every` canary requests) and health endpoints are read-only.
+2. **p99-only comparison hid real regressions.** A canary whose whole latency
+   distribution shifted could stay under 1.5× a noisy baseline p99. The SLO
+   also compares medians (`max_p50_ratio`).
+3. **Judging against the warm fleet rolled back healthy builds.** A new
+   replica starts with a cold prefix cache and, at a small traffic share, sees
+   a random sample of all tenants, while fleet replicas each own a
+   cache-friendly slice. The fix is a *matched control* (the Kayenta pattern): a
+   fresh replica of the current build that starts with the canary and gets the
+   same traffic share; the canary is judged only against it.
+4. **Prefix routing trades balance for hit rate.** It raised the cache hit rate
+   from 53% to 89% but let the busiest replica take 37% of traffic instead of
+   25%. `max_imbalance` is the knob, and it should be set from measured
+   capacity, not left at its default.
