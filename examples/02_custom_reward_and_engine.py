@@ -33,7 +33,16 @@ class EchoEngine(RolloutEngine):
         for r in requests:
             for _ in range(r.n or sampling.n):
                 ids = list(reversed(r.prompt_ids))[: sampling.max_new_tokens]
-                out.append(Sample(r.prompt_ids, ids, [-1.0] * len(ids), r.group_id, self.policy_version, meta=dict(r.meta or {})))
+                out.append(
+                    Sample(
+                        r.prompt_ids,
+                        ids,
+                        [-1.0] * len(ids),
+                        r.group_id,
+                        self.policy_version,
+                        meta=dict(r.meta or {}),
+                    )
+                )
         return out
 
     def update_weights(self, named_tensors: Iterable[tuple[str, torch.Tensor]], version: int) -> None:
@@ -42,8 +51,18 @@ class EchoEngine(RolloutEngine):
 
 
 if __name__ == "__main__":
-    scorer = RewardScorer(RewardConfig(functions=[RewardFnConfig(name="contains_keyword", params={"keyword": "therefore"}),
-                                                  RewardFnConfig(name="math_boxed", weight=2.0)]))
-    print(scorer.score_batch([{"response": r"therefore \boxed{4}", "answer": "4"}, {"response": "no", "answer": "4"}]))
+    scorer = RewardScorer(
+        RewardConfig(
+            functions=[
+                RewardFnConfig(name="contains_keyword", params={"keyword": "therefore"}),
+                RewardFnConfig(name="math_boxed", weight=2.0),
+            ]
+        )
+    )
+    print(
+        scorer.score_batch(
+            [{"response": r"therefore \boxed{4}", "answer": "4"}, {"response": "no", "answer": "4"}]
+        )
+    )
     eng = EchoEngine()
     print(eng.generate([GenerationRequest([1, 2, 3], group_id=0, n=2)], SamplingConfig(max_new_tokens=8))[0])

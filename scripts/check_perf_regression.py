@@ -15,7 +15,11 @@ import sys
 
 HIGHER_IS_BETTER = {"speedup", "eff_GB_s", "throughput_rps", "Gbps", "steps_per_s", "mfu"}
 LOWER_IS_BETTER = {"fused_ms", "ttft_p99_ms", "e2e_p99_s", "sync_ms", "preemptions"}
-METRICS = HIGHER_IS_BETTER | LOWER_IS_BETTER | {"naive_ms", "ttft_p50_ms", "e2e_p50_s", "peak_kv_util", "bytes_MB", "wall_s", "mean_staleness"}
+METRICS = (
+    HIGHER_IS_BETTER
+    | LOWER_IS_BETTER
+    | {"naive_ms", "ttft_p50_ms", "e2e_p50_s", "peak_kv_util", "bytes_MB", "wall_s", "mean_staleness"}
+)
 
 
 def key_of(row: dict) -> str:

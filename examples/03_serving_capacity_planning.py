@@ -10,11 +10,15 @@ from kiln.serving.scheduler import SchedulerConfig, simulate
 
 
 def _ok(n: int, target_rps: float, ttft_p99_s: float, cfg: SchedulerConfig) -> bool:
-    r = simulate(cfg, num_requests=400, arrival_rps=target_rps / n, prompt_len=(256, 2048), max_new=(64, 1024), seed=0)
+    r = simulate(
+        cfg, num_requests=400, arrival_rps=target_rps / n, prompt_len=(256, 2048), max_new=(64, 1024), seed=0
+    )
     return r.ttft_p99 <= ttft_p99_s and r.throughput_rps * n >= 0.95 * target_rps
 
 
-def replicas_needed(target_rps: float, ttft_p99_s: float, cfg: SchedulerConfig, max_replicas: int = 256) -> int:
+def replicas_needed(
+    target_rps: float, ttft_p99_s: float, cfg: SchedulerConfig, max_replicas: int = 256
+) -> int:
     """Smallest replica count meeting the SLO (SLO satisfaction is monotone in n, so bisect)."""
     lo, hi = 1, 1
     while hi < max_replicas and not _ok(hi, target_rps, ttft_p99_s, cfg):
