@@ -178,13 +178,7 @@ class PolicyTrainer:
         assert self.critic is not None
         outs = []
         for mb in batch.micro_batches(self.cfg.train.micro_batch_size):
-            logits = self.model(mb.input_ids, attention_mask=mb.attention_mask, position_ids=mb.position_ids)
-            # critic reads the pre-head features; for TinyLM reuse the normalised hidden via lm_head weight trick
-            h = (
-                logits @ torch.pinverse(self.model.lm_head.weight.float()).t()
-                if hasattr(self.model, "lm_head")
-                else logits
-            )
+            h = self.model.forward_hidden(mb.input_ids, mb.attention_mask, mb.position_ids)
             outs.append(self.critic(h[:, :-1].float()))
         return torch.cat(outs, 0)
 

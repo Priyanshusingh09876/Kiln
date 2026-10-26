@@ -67,7 +67,7 @@ try:  # pragma: no cover
             scale = tl.exp(m - m_new)
             e = tl.exp(x - m_new)
             e = tl.where(mask, e, 0.0)
-            l = l * scale  # noqa: E741 - online-softmax denominator, matches the paper + tl.sum(e, axis=0)
+            l = l * scale + tl.sum(e, axis=0)  # noqa: E741 - online-softmax denominator
             s = s * scale + tl.sum(e * tl.where(mask, x, 0.0), axis=0)
             m = m_new
             tgt_logit += tl.sum(tl.where(offs == target, x, 0.0), axis=0)

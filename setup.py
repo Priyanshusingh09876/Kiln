@@ -20,9 +20,7 @@ if os.environ.get("KILN_SKIP_NATIVE", "0") != "1":
     try:
         from torch.utils.cpp_extension import CUDA_HOME, BuildExtension, CppExtension, CUDAExtension
 
-        ext_modules.append(
-            CppExtension("kiln._C", ["csrc/radix_tree.cpp"], extra_compile_args=["-O3"])
-        )
+        ext_modules.append(CppExtension("kiln._C", ["csrc/radix_tree.cpp"], extra_compile_args=["-O3"]))
         if CUDA_HOME is not None and os.environ.get("KILN_SKIP_CUDA", "0") != "1":
             ext_modules.append(
                 CUDAExtension(
@@ -31,10 +29,14 @@ if os.environ.get("KILN_SKIP_NATIVE", "0") != "1":
                     include_dirs=[os.path.abspath("csrc")],
                     extra_compile_args={
                         "cxx": ["-O3"],
-                        "nvcc": ["-O3", "--use_fast_math", "-lineinfo",
-                                 "-gencode=arch=compute_80,code=sm_80",
-                                 "-gencode=arch=compute_90,code=sm_90",
-                                 "-gencode=arch=compute_90,code=compute_90"],
+                        "nvcc": [
+                            "-O3",
+                            "--use_fast_math",
+                            "-lineinfo",
+                            "-gencode=arch=compute_80,code=sm_80",
+                            "-gencode=arch=compute_90,code=sm_90",
+                            "-gencode=arch=compute_90,code=compute_90",
+                        ],
                     },
                 )
             )

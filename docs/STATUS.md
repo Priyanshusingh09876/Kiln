@@ -47,7 +47,7 @@ Hardware used for everything marked ✅: a CPU-only Linux container (2–4 cores
 | Component | Status | Evidence / notes |
 |---|---|---|
 | PyTorch reference paths (log-prob+entropy, RMSNorm, RoPE, FP8 dequant GEMM) | ✅ | fwd + bwd vs. naive and vs. float64 (`test_kernels.py`, `docs/benchmarks/kernels_cpu.md`) |
-| Triton kernels | 🟡 | parity tests exist and skip without CUDA; never executed |
+| Triton kernels | 🟡 executed on 1 GPU | run on an RTX 3080 Laptop (sm_86, Windows, triton-windows): RMSNorm and RoPE passed first time; fused log-prob was broken (bug 16), fixed. Fused log-prob also runs on CPU in CI via `TRITON_INTERPRET=1` (`test_triton_interpret.py`). Not yet run on Linux / datacenter GPUs |
 | CUDA C++ kernels (`csrc/*.cu`) | 🟡 type-checked | compiled by g++ against real libtorch + CUDA headers in CI (catches compile errors); never compiled by nvcc or executed |
 | Backend pinning (`KILN_KERNEL_BACKEND`) | ✅ | `test_backend_forcing_actually_disables_triton` |
 | Kernel benchmark harness | ✅ on CPU | `scripts/bench_kernels.py`; Triton/CUDA rows need a GPU run |
@@ -93,5 +93,19 @@ Recorded because they are what happens to infrastructure that has only run on on
 14. Configs accepted `tp/pp/cp > 1` although nothing implements them; the shipped 70B config relied on it.
 15. DPO had a loss function and a dataset but no training loop.
 
-Fixes 1, 3–7 and 9–15 have tests that target them directly; for 5, 6 and 10 I confirmed the test fails when
+Found by the first run on a real GPU (RTX 3080 Laptop, 22 failing tests, three root causes):
+
+16. The Triton fused log-prob forward returned `+inf` for every token. A formatting edit had moved
+    `+ tl.sum(e, axis=0)` into a trailing comment, so the online-softmax denominator stayed 0 and
+    `lse = log 0`. The resulting inf loss produced NaN weights, which then failed every end-to-end, resume and
+    DPO test on GPU. CPU CI could not see it: the Triton tests skip without CUDA. The kernel is now also
+    executed under Triton's CPU interpreter in CI, and `generate()` raises on non-finite logits instead of
+    crashing inside `multinomial`.
+17. `kl/coef` was created as a CPU tensor next to CUDA metrics, so the metric all-reduce failed on GPU.
+    `all_reduce_metrics` now also moves mixed-device metrics to one device.
+18. The PPO critic read hidden states through `logits @ pinverse(lm_head.weight)`, an SVD that does not
+    converge on CUDA (and was only an approximation anyway). `TinyLM.forward_hidden` now returns the real final
+    hidden states, through `__call__` so FSDP hooks still run.
+
+Fixes 1, 3–7 and 9–18 have tests that target them directly; for 5, 6, 10 and 16 I confirmed the test fails when
 the fix is reverted. Fixes 2 and 8 are exercised by the two-rank test but no test isolates them.

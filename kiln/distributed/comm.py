@@ -106,7 +106,11 @@ def all_reduce_metrics(metrics: dict[str, torch.Tensor], group=None) -> dict[str
     if not metrics:
         return {}
     keys = sorted(metrics)
-    stacked = torch.stack([metrics[k].detach().float().reshape(()) for k in keys])
+    vals = [torch.as_tensor(metrics[k]).detach().float().reshape(()) for k in keys]
+    # metrics can come from different devices (e.g. a python-float coefficient
+    # wrapped on CPU next to CUDA losses); reduce on the accelerator if any.
+    dev = next((v.device for v in vals if v.device.type != "cpu"), vals[0].device)
+    stacked = torch.stack([v.to(dev) for v in vals])
     if _dist_ok():
         dist.all_reduce(stacked, op=dist.ReduceOp.SUM, group=group)
         stacked /= dist.get_world_size(group)

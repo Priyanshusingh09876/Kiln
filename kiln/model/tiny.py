@@ -112,6 +112,7 @@ class TinyLM(nn.Module):
         attention_mask: torch.Tensor | None = None,
         position_ids: torch.Tensor | None = None,
         block_mask: torch.Tensor | None = None,
+        return_hidden: bool = False,
         **_: object,
     ) -> torch.Tensor:
         """Return logits ``[B, T, V]``.
@@ -136,7 +137,22 @@ class TinyLM(nn.Module):
             attn_mask = attn_mask | diag
         for blk in self.blocks:
             x = blk(x, self.rope_cos, self.rope_sin, position_ids, attn_mask)
-        return self.lm_head(self.norm(x))
+        h = self.norm(x)
+        return h if return_hidden else self.lm_head(h)
+
+    def forward_hidden(self, input_ids, attention_mask=None, position_ids=None, block_mask=None):
+        """Final normalised hidden states ``[B, T, H]`` (critic input).
+
+        Goes through ``__call__`` so FSDP2 pre/post-forward hooks still unshard
+        the root parameters.
+        """
+        return self(
+            input_ids,
+            attention_mask=attention_mask,
+            position_ids=position_ids,
+            block_mask=block_mask,
+            return_hidden=True,
+        )
 
     @torch.no_grad()
     def generate(
@@ -161,6 +177,8 @@ class TinyLM(nn.Module):
                 kth = torch.topk(logits, top_k, dim=-1).values[:, -1:]
                 logits = logits.masked_fill(logits < kth, float("-inf"))
             logp = torch.log_softmax(logits, dim=-1)
+            if not torch.isfinite(logp).any(dim=-1).all():
+                raise FloatingPointError("non-finite logits in generate(); policy weights are NaN/inf")
             nxt = torch.multinomial(logp.exp(), 1, generator=generator).squeeze(-1)
             lp = logp.gather(-1, nxt.unsqueeze(-1)).squeeze(-1)
             nxt = torch.where(done, torch.zeros_like(nxt), nxt)

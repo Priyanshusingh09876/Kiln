@@ -52,7 +52,10 @@ class Algorithm(ABC):
         kl = kl_penalty(out.logp, out.ref_logp, self.cfg.kl.estimator)
         kl_mean = masked_mean(kl, mask)
         coef = self.kl_ctl.update(float(kl_mean.detach()))
-        return coef * kl_mean, {"kl/ref": kl_mean.detach(), "kl/coef": torch.tensor(coef)}
+        return coef * kl_mean, {
+            "kl/ref": kl_mean.detach(),
+            "kl/coef": torch.tensor(coef, device=kl_mean.device),
+        }
 
     def shape_rewards(self, batch: RolloutBatch, out: ForwardOutputs) -> torch.Tensor | None:
         """PPO-style per-token reward = -coef*KL on every token, +R on the last response token."""

@@ -109,7 +109,7 @@ and the loss-curve comparison.
 | Tier | Date | Hardware | Result | Link |
 |---|---|---|---|---|
 | 0 | 2026-10-26 | CPU container | all passing | `docs/benchmarks/*cpu*` |
-| 1 | — | — | not run yet | |
+| 1 (partial) | 2026-10-26 | RTX 3080 Laptop 16 GB, Windows, CUDA torch + triton-windows | first run: 22 failures from 3 bugs (STATUS.md #16–18), fixed; rerun pending | |
 | 2a | — | — | not run yet | |
 | 2b | — | — | needs Ray path first | |
 | 2c | — | — | not run yet | |
