@@ -142,3 +142,17 @@ def test_backend_env_override(monkeypatch):
     assert native.backend() == "torch"
     s = native.summary()
     assert set(s) == {"cpp_ext", "cuda_ext", "backend"}
+
+
+def test_backend_forcing_actually_disables_triton(monkeypatch):
+    """KILN_KERNEL_BACKEND must pin the implementation, or kernel benchmarks compare a path with itself."""
+    import kiln.kernels.dispatch as d
+
+    monkeypatch.setattr(d, "_TRITON_IMPORTABLE", True)
+    monkeypatch.setattr(d.torch.cuda, "is_available", lambda: True)
+    for env, expect in (("auto", True), ("triton", True), ("torch", False), ("cuda", False)):
+        monkeypatch.setenv("KILN_KERNEL_BACKEND", env)
+        assert d.triton_enabled() is expect, env
+    monkeypatch.setenv("KILN_KERNEL_BACKEND", "auto")
+    monkeypatch.setenv("KILN_DISABLE_TRITON", "1")
+    assert d.triton_enabled() is False

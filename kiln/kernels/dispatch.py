@@ -24,7 +24,11 @@ except Exception:  # pragma: no cover
 
 
 def triton_enabled() -> bool:
+    """True if the Triton path may run. ``KILN_KERNEL_BACKEND=torch|cuda`` (or the older
+    ``KILN_DISABLE_TRITON=1``) turns it off, so benchmarks can pin one implementation."""
     if os.environ.get("KILN_DISABLE_TRITON", "0") == "1":
+        return False
+    if os.environ.get("KILN_KERNEL_BACKEND", "auto").lower() in ("torch", "cuda"):
         return False
     return _TRITON_IMPORTABLE and torch.cuda.is_available()
 
